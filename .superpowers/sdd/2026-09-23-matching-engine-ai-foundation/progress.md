@@ -8,3 +8,5 @@ Task 4: complete (migration 20260922174312_matching_ai_foundation applied; tests
 Task 5: complete (tests: npm test -- tests/unit/ai/embedding-text.test.ts tests/unit/services/embedding-persistence.test.ts -> 4/4 pass; typecheck pass)
 Task 6: complete (tests: npm test -- tests/unit/matching/vector-search.test.ts -> 2/2 pass; typecheck pass)
 Task 7: complete (tests: npm test -- tests/unit/matching/scorer.test.ts tests/unit/matching/llm-parser.test.ts -> 4/4 pass; typecheck pass)
+Task 8: Ruling: matching route dependencies remain injectable in createApp; production composition is deferred until a job-context repository is added, preventing a fake/no-op production recommendation path.
+Task 8: complete (tests: npm test -- tests/integration/api/matching.test.ts -> 3/3 pass; typecheck and build pass)
