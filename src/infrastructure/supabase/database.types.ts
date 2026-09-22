@@ -83,6 +83,13 @@ export type Database = {
           created_at: string
           deleted_at: string | null
           description: string
+          embedding: string | null
+          embedding_content_checksum: string | null
+          embedding_dimensions: number | null
+          embedding_error: string | null
+          embedding_model: string | null
+          embedding_status: string
+          embedding_updated_at: string | null
           employment_type: string | null
           expires_at: string | null
           external_id: string | null
@@ -104,6 +111,13 @@ export type Database = {
           created_at?: string
           deleted_at?: string | null
           description: string
+          embedding?: string | null
+          embedding_content_checksum?: string | null
+          embedding_dimensions?: number | null
+          embedding_error?: string | null
+          embedding_model?: string | null
+          embedding_status?: string
+          embedding_updated_at?: string | null
           employment_type?: string | null
           expires_at?: string | null
           external_id?: string | null
@@ -125,6 +139,13 @@ export type Database = {
           created_at?: string
           deleted_at?: string | null
           description?: string
+          embedding?: string | null
+          embedding_content_checksum?: string | null
+          embedding_dimensions?: number | null
+          embedding_error?: string | null
+          embedding_model?: string | null
+          embedding_status?: string
+          embedding_updated_at?: string | null
           employment_type?: string | null
           expires_at?: string | null
           external_id?: string | null
@@ -288,6 +309,13 @@ export type Database = {
           created_at: string
           deleted_at: string | null
           display_name: string
+          embedding: string | null
+          embedding_content_checksum: string | null
+          embedding_dimensions: number | null
+          embedding_error: string | null
+          embedding_model: string | null
+          embedding_status: string
+          embedding_updated_at: string | null
           experience: string | null
           headline: string | null
           id: string
@@ -302,6 +330,13 @@ export type Database = {
           created_at?: string
           deleted_at?: string | null
           display_name: string
+          embedding?: string | null
+          embedding_content_checksum?: string | null
+          embedding_dimensions?: number | null
+          embedding_error?: string | null
+          embedding_model?: string | null
+          embedding_status?: string
+          embedding_updated_at?: string | null
           experience?: string | null
           headline?: string | null
           id?: string
@@ -316,6 +351,13 @@ export type Database = {
           created_at?: string
           deleted_at?: string | null
           display_name?: string
+          embedding?: string | null
+          embedding_content_checksum?: string | null
+          embedding_dimensions?: number | null
+          embedding_error?: string | null
+          embedding_model?: string | null
+          embedding_status?: string
+          embedding_updated_at?: string | null
           experience?: string | null
           headline?: string | null
           id?: string
@@ -365,6 +407,18 @@ export type Database = {
           profile_id: string
           skill_count: number
           uploaded_at: string
+        }[]
+      }
+      match_candidate_jobs: {
+        Args: {
+          p_candidate_id: string
+          p_match_count?: number
+          p_match_threshold?: number
+          p_query_embedding: string
+        }
+        Returns: {
+          job_id: string
+          similarity: number
         }[]
       }
       upsert_job_ingestion: {
