@@ -7,3 +7,4 @@ Task 4: Ruling: pgvector operators are schema-qualified as extensions.<=> and ex
 Task 4: complete (migration 20260922174312_matching_ai_foundation applied; tests: npm test -- tests/integration/database/matching-schema.test.ts -> 2/2 pass; typecheck pass; remote verification confirmed vector extension, 2 HNSW indexes, 2 embedding columns, invoker RPC)
 Task 5: complete (tests: npm test -- tests/unit/ai/embedding-text.test.ts tests/unit/services/embedding-persistence.test.ts -> 4/4 pass; typecheck pass)
 Task 6: complete (tests: npm test -- tests/unit/matching/vector-search.test.ts -> 2/2 pass; typecheck pass)
+Task 7: complete (tests: npm test -- tests/unit/matching/scorer.test.ts tests/unit/matching/llm-parser.test.ts -> 4/4 pass; typecheck pass)
