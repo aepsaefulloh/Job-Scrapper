@@ -7,3 +7,4 @@ Task 3: complete (tests: npm test -- tests/unit/infrastructure/job-repository.te
 Task 4: Ruling: JobIngestionService accepts candidateId and an optional accessToken because the repository is already constructed with the request-scoped authenticated Supabase client; this preserves RLS without duplicating client construction.
 Task 4: complete (tests: npm test -- tests/unit/services/job-ingestion-service.test.ts -> 2/2 pass; typecheck pass)
 Task 5: complete (tests: npm test -> 11 files/21 tests pass; typecheck and build pass)
+Task 6: complete (tests: npm test -> 11 files/21 tests pass; typecheck and build pass; remote SQL verified 3 job tables, 3 RLS tables, 10 policies, invoker RPC, and zero rows)
