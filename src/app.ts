@@ -3,6 +3,7 @@ import multer from 'multer';
 
 import { MarkdownProfileValidationError } from './domain/profile/profile-errors.js';
 import type { ProfileUploadResult } from './infrastructure/supabase/profile-repository.js';
+import type { MatchingService } from './services/matching-service.js';
 
 type ProfileUploadService = {
   upload(input: { candidateId: string; fileName: string; contents: string }): Promise<ProfileUploadResult>;
@@ -14,6 +15,7 @@ export type AppDependencies = {
   createProfileService: (accessToken: string) => ProfileUploadService;
   authenticate: Authenticator;
   profileDocumentMaxBytes: number;
+  matchingService?: MatchingService;
 };
 
 type InvalidUploadError = Error & { code: 'INVALID_UPLOAD' };
@@ -48,6 +50,20 @@ export function createApp(dependencies: AppDependencies): Express {
       next(error);
     }
   });
+  const matchingService = dependencies.matchingService;
+  if (matchingService) {
+    app.get('/matching/jobs/:candidateId', authenticate, async (req, res, next) => {
+      try {
+        const candidateId = String(req.params.candidateId ?? '');
+        if (candidateId !== res.locals.auth.userId) return void res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Candidate access is forbidden.' } });
+        const limit = req.query.limit === undefined ? 20 : Number(req.query.limit);
+        const threshold = req.query.threshold === undefined ? 0 : Number(req.query.threshold);
+        if (!Number.isInteger(limit) || limit < 1 || limit > 200 || !Number.isFinite(threshold) || threshold < -1 || threshold > 1) return void res.status(400).json({ error: { code: 'INVALID_MATCHING_QUERY', message: 'Matching limit or threshold is invalid.' } });
+        const recommendations = await matchingService.recommend(candidateId, limit, threshold, res.locals.auth.accessToken);
+        res.json(recommendations.map((recommendation) => ({ job_id: recommendation.jobId, similarity: recommendation.similarity, rule_score: recommendation.ruleScore, breakdown: recommendation.breakdown, ai_analysis: recommendation.aiAnalysis, recommendation: recommendation.recommendation })));
+      } catch (error) { next(error); }
+    });
+  }
   app.use(errorHandler);
   return app;
 }
