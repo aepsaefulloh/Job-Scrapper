@@ -4,6 +4,7 @@ import multer from 'multer';
 import { MarkdownProfileValidationError } from './domain/profile/profile-errors.js';
 import type { ProfileUploadResult } from './infrastructure/supabase/profile-repository.js';
 import type { MatchingService } from './services/matching-service.js';
+import { MatchingError } from './matching/types.js';
 
 type ProfileUploadService = {
   upload(input: { candidateId: string; fileName: string; contents: string }): Promise<ProfileUploadResult>;
@@ -16,6 +17,7 @@ export type AppDependencies = {
   authenticate: Authenticator;
   profileDocumentMaxBytes: number;
   matchingService?: MatchingService;
+  createMatchingService?: (accessToken: string) => MatchingService;
 };
 
 type InvalidUploadError = Error & { code: 'INVALID_UPLOAD' };
@@ -50,8 +52,7 @@ export function createApp(dependencies: AppDependencies): Express {
       next(error);
     }
   });
-  const matchingService = dependencies.matchingService;
-  if (matchingService) {
+  if (dependencies.matchingService || dependencies.createMatchingService) {
     app.get('/matching/jobs/:candidateId', authenticate, async (req, res, next) => {
       try {
         const candidateId = String(req.params.candidateId ?? '');
@@ -59,6 +60,8 @@ export function createApp(dependencies: AppDependencies): Express {
         const limit = req.query.limit === undefined ? 20 : Number(req.query.limit);
         const threshold = req.query.threshold === undefined ? 0 : Number(req.query.threshold);
         if (!Number.isInteger(limit) || limit < 1 || limit > 200 || !Number.isFinite(threshold) || threshold < -1 || threshold > 1) return void res.status(400).json({ error: { code: 'INVALID_MATCHING_QUERY', message: 'Matching limit or threshold is invalid.' } });
+        const matchingService = dependencies.createMatchingService?.(res.locals.auth.accessToken) ?? dependencies.matchingService;
+        if (!matchingService) throw new MatchingError('VECTOR_SEARCH_FAILED', 'Matching service is unavailable.');
         const recommendations = await matchingService.recommend(candidateId, limit, threshold, res.locals.auth.accessToken);
         res.json(recommendations.map((recommendation) => ({ job_id: recommendation.jobId, similarity: recommendation.similarity, rule_score: recommendation.ruleScore, breakdown: recommendation.breakdown, ai_analysis: recommendation.aiAnalysis, recommendation: recommendation.recommendation })));
       } catch (error) { next(error); }
@@ -82,5 +85,6 @@ const errorHandler: ErrorRequestHandler = (error, _req, res, _next) => {
   if ((error as Partial<InvalidUploadError>).code === 'INVALID_UPLOAD') {
     return void res.status(400).json({ error: { code: 'INVALID_UPLOAD', message: error.message } });
   }
+  if (error instanceof MatchingError) return void res.status(503).json({ error: { code: error.code, message: error.message } });
   res.status(502).json({ error: { code: 'PROFILE_STORAGE_FAILED', message: 'The candidate profile could not be saved.' } });
 };

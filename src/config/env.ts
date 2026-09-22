@@ -10,7 +10,7 @@ const envSchema = z.object({
   AI_BASE_URL: z.string({ error: 'AI_BASE_URL is required.' }).url().refine((value) => value.startsWith('https://'), { message: 'AI_BASE_URL must use HTTPS.' }),
   AI_CHAT_MODEL: z.string({ error: 'AI_CHAT_MODEL is required.' }).min(1),
   AI_EMBEDDING_MODEL: z.string().min(1).default('text-embedding-3-small'),
-  AI_EMBEDDING_DIMENSIONS: z.coerce.number().int().positive().default(1536)
+  AI_EMBEDDING_DIMENSIONS: z.coerce.number().int().refine((value) => value === 1536, { message: 'AI_EMBEDDING_DIMENSIONS must be 1536.' }).default(1536)
 });
 
 export type AppEnv = {

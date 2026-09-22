@@ -15,7 +15,7 @@ describe('matching schema migration contract', () => {
   it('defines an ownership-filtered bounded matching RPC', () => {
     expect(migration).toMatch(/match_candidate_jobs/i);
     expect(migration).toMatch(/auth\.uid\(\).*p_candidate_id/is);
-    expect(migration).toMatch(/least\(p_match_count, 200\)/i);
+    expect(migration).toMatch(/least\(greatest\(p_match_count, 1\), 200\)/i);
     expect(migration).toMatch(/embedding_status = 'ready'/i);
     expect(migration).toMatch(/revoke execute on function public\.match_candidate_jobs/i);
   });

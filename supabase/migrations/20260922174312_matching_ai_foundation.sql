@@ -45,7 +45,7 @@ as $$
     and jobs.embedding is not null
     and (1 - (jobs.embedding OPERATOR(extensions.<=>) p_query_embedding)) >= p_match_threshold
   order by jobs.embedding OPERATOR(extensions.<=>) p_query_embedding
-  limit least(p_match_count, 200);
+  limit least(greatest(p_match_count, 1), 200);
 $$;
 
 revoke execute on function public.match_candidate_jobs(uuid, extensions.vector(1536), double precision, integer) from public;

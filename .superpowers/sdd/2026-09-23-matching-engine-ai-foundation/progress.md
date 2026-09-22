@@ -12,3 +12,6 @@ Task 8: Ruling: matching route dependencies remain injectable in createApp; prod
 Task 8: complete (tests: npm test -- tests/integration/api/matching.test.ts -> 3/3 pass; typecheck and build pass)
 Task 9: Ruling: existing environment tests were updated with the newly required AI configuration fields; production configuration remains strict so missing provider credentials fail fast.
 Task 9: complete (tests: npm test -> 22 files/48 tests pass; typecheck and build pass; fixtures/ADRs/README added)
+Fix pass: added production MatchingService composition and request-scoped Supabase repository context loading; matching API now wires in server.ts while preserving injectable tests.
+Fix pass: model configuration, 1536-dimension validation, five-part deterministic scoring, matching error mapping, pending/failed embedding state transitions, whitespace-safe role scoring, and bounded RPC limit were corrected.
+Final verification: npm test -> 22 files/48 tests pass; npm run typecheck pass; npm run build pass; bounded RPC correction applied remotely as matching_ai_foundation_rpc_bound.

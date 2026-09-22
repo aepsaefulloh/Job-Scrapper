@@ -6,6 +6,11 @@ import { SupabaseProfileDocumentStorage } from './infrastructure/supabase/profil
 import { SupabaseProfileRepository } from './infrastructure/supabase/profile-repository.js';
 import { createUserSupabaseClient } from './infrastructure/supabase/supabase-user-client.js';
 import { ProfileService } from './services/profile-service.js';
+import { SumoPodProvider } from './ai/providers/sumopod.provider.js';
+import { LlmService } from './ai/completion/llm.service.js';
+import { SupabaseMatchingRepository } from './matching/matching.repository.js';
+import { VectorSearchService } from './matching/vector-search.service.js';
+import { DefaultMatchingService } from './services/matching-service.js';
 
 const env = loadEnv(process.env);
 const app = createApp({
@@ -19,6 +24,12 @@ const app = createApp({
   createProfileService: (accessToken) => {
     const client = createUserSupabaseClient(accessToken, env);
     return new ProfileService(new SupabaseProfileDocumentStorage(client), new SupabaseProfileRepository(client));
+  },
+  createMatchingService: (accessToken) => {
+    const client = createUserSupabaseClient(accessToken, env);
+    const provider = new SumoPodProvider({ baseUrl: env.aiBaseUrl, apiKey: env.aiApiKey });
+    const repository = new SupabaseMatchingRepository(client);
+    return new DefaultMatchingService(new VectorSearchService(repository, { maxLimit: 200 }), repository, new LlmService(provider), env.aiChatModel);
   }
 });
 
