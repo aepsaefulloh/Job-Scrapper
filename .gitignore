@@ -1,0 +1,16 @@
+# Local dependencies and build output
+node_modules/
+dist/
+coverage/
+
+# Secrets and private candidate data
+.env
+.env.*
+!.env.example
+candidate.md
+*.candidate.md
+
+# Local Supabase and agent workspaces
+.supabase/
+.worktrees/
+.superpowers/
