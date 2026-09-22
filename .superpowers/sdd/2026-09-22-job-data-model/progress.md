@@ -8,3 +8,5 @@ Task 4: Ruling: JobIngestionService accepts candidateId and an optional accessTo
 Task 4: complete (tests: npm test -- tests/unit/services/job-ingestion-service.test.ts -> 2/2 pass; typecheck pass)
 Task 5: complete (tests: npm test -> 11 files/21 tests pass; typecheck and build pass)
 Task 6: complete (tests: npm test -> 11 files/21 tests pass; typecheck and build pass; remote SQL verified 3 job tables, 3 RLS tables, 10 policies, invoker RPC, and zero rows)
+Final: fixed reviewer findings - strict timestamp validation (job-normalizer test RED->GREEN), parent ownership/raw immutability/advisory-lock migration (job-schema test RED->GREEN), full suite 11 files/23 tests; remaining advisor findings are pre-existing rls_auto_enable warning and expected unused-index INFO on empty tables.
+Final review: fresh reviewer completed; all Important findings addressed.
