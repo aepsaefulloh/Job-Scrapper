@@ -3,3 +3,5 @@ Pre-flight: Task 1 produces AI configuration and errors consumed by Tasks 2-3; T
 Task 1: complete (tests: npm test -- tests/unit/config/ai-env.test.ts -> 3/3 pass; typecheck pass)
 Task 2: complete (tests: npm test -- tests/unit/ai/embedding-service.test.ts -> 3/3 pass; typecheck pass)
 Task 3: complete (tests: npm test -- tests/unit/ai/sumopod-provider.test.ts tests/unit/ai/llm-service.test.ts -> 4/4 pass; typecheck pass)
+Task 4: Ruling: pgvector operators are schema-qualified as extensions.<=> and extensions.vector_cosine_ops because the matching RPC uses an empty search_path; the first remote apply failed and rolled back, then the corrected migration applied successfully.
+Task 4: complete (migration 20260922174312_matching_ai_foundation applied; tests: npm test -- tests/integration/database/matching-schema.test.ts -> 2/2 pass; typecheck pass; remote verification confirmed vector extension, 2 HNSW indexes, 2 embedding columns, invoker RPC)
