@@ -12,5 +12,6 @@ candidate.md
 
 # Local Supabase and agent workspaces
 .supabase/
+supabase/.temp/
 .worktrees/
 .superpowers/
