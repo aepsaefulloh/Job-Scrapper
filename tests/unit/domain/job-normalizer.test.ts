@@ -36,4 +36,9 @@ describe('job normalizer', () => {
     expect(() => normalizeJob({ source: 'example', url: 'https://example.com/1', fetchedAt, payload: {} }))
       .toThrow(JobValidationError);
   });
+
+  it('rejects non-ISO fetch and publication timestamps', () => {
+    expect(() => normalizeJob({ ...{ source: 'example', url: 'https://example.com/1', payload: { title: 'T', company: 'C', description: 'D', publishedAt: 'tomorrow' }, fetchedAt: 'tomorrow' } }))
+      .toThrow(JobValidationError);
+  });
 });

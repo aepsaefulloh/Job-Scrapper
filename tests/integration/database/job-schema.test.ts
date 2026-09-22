@@ -2,7 +2,10 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-const migration = readFileSync(resolve(process.cwd(), 'supabase/migrations/20260922162703_job_data_model.sql'), 'utf8');
+const migration = [
+  readFileSync(resolve(process.cwd(), 'supabase/migrations/20260922162703_job_data_model.sql'), 'utf8'),
+  readFileSync(resolve(process.cwd(), 'supabase/migrations/20260922163935_harden_job_ingestion.sql'), 'utf8'),
+].join('\n');
 
 describe('job schema migration contract', () => {
   it('defines candidate-owned raw, normalized, and skill tables', () => {
@@ -19,5 +22,12 @@ describe('job schema migration contract', () => {
     expect(migration).toMatch(/grant select, insert, update on public\.jobs_raw to authenticated/i);
     expect(migration).toMatch(/revoke execute on function public\.upsert_job_ingestion/i);
     expect(migration).toMatch(/security invoker/i);
+  });
+
+  it('requires child ownership and protects raw observations', () => {
+    expect(migration).toMatch(/exists \(select 1 from public\.jobs/i);
+    expect(migration).toMatch(/revoke update on public\.jobs_raw from authenticated/i);
+    expect(migration).toMatch(/prevent_job_raw_mutation/i);
+    expect(migration).toMatch(/pg_advisory_xact_lock/i);
   });
 });

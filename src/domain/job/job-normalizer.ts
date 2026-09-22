@@ -20,7 +20,7 @@ function optionalString(payload: Record<string, unknown>, key: string): string |
 function optionalIsoDate(payload: Record<string, unknown>, key: string): string | undefined {
   const value = optionalString(payload, key);
   if (value === undefined) return undefined;
-  if (Number.isNaN(Date.parse(value))) throw new JobValidationError(`Job payload field '${key}' must be an ISO date.`);
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(value) || Number.isNaN(Date.parse(value))) throw new JobValidationError(`Job payload field '${key}' must be an ISO date.`);
   return new Date(value).toISOString();
 }
 
@@ -42,6 +42,7 @@ export function canonicalizeJobUrl(value: string): string {
 
 export function normalizeJob(input: RawJobInput): NormalizedJob {
   if (!input.source.trim()) throw new JobValidationError('Job source is required.');
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(input.fetchedAt) || Number.isNaN(Date.parse(input.fetchedAt))) throw new JobValidationError('Job fetchedAt must be an ISO date.');
   const canonicalUrl = canonicalizeJobUrl(input.url);
   const normalized: NormalizedJob = {
     source: input.source.trim(),
