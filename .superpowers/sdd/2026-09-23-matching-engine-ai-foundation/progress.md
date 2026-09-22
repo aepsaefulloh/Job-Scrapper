@@ -1,3 +1,4 @@
 # SDD ledger - plan: docs/superpowers/plans/2026-09-23-matching-engine-ai-foundation.md
 Pre-flight: Task 1 produces AI configuration and errors consumed by Tasks 2-3; Task 2 produces EmbeddingProvider/EmbeddingService consumed by Tasks 3, 5, and 6; Task 3 produces CompletionProvider/LlmService consumed by Tasks 7-8; Task 4 produces vector schema/RPC consumed by Tasks 5-6; Task 5 produces embedding persistence consumed by Task 6; Task 6 produces VectorMatch consumed by Tasks 7-8; Task 7 produces RuleScore/AiMatchAnalysis consumed by Task 8. Interfaces are consistent with the spec.
 Task 1: complete (tests: npm test -- tests/unit/config/ai-env.test.ts -> 3/3 pass; typecheck pass)
+Task 2: complete (tests: npm test -- tests/unit/ai/embedding-service.test.ts -> 3/3 pass; typecheck pass)
