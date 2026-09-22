@@ -29,6 +29,179 @@ export type Database = {
         }
         Relationships: []
       }
+      job_skills: {
+        Row: {
+          candidate_id: string
+          canonical_name: string
+          created_at: string
+          display_name: string
+          id: string
+          job_id: string
+          match_method: string
+        }
+        Insert: {
+          candidate_id: string
+          canonical_name: string
+          created_at?: string
+          display_name: string
+          id?: string
+          job_id: string
+          match_method?: string
+        }
+        Update: {
+          candidate_id?: string
+          canonical_name?: string
+          created_at?: string
+          display_name?: string
+          id?: string
+          job_id?: string
+          match_method?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_skills_candidate_id_fkey"
+            columns: ["candidate_id"]
+            isOneToOne: false
+            referencedRelation: "candidates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_skills_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      jobs: {
+        Row: {
+          candidate_id: string
+          canonical_url: string
+          company_name: string
+          content_checksum: string
+          created_at: string
+          deleted_at: string | null
+          description: string
+          employment_type: string | null
+          expires_at: string | null
+          external_id: string | null
+          id: string
+          location: string | null
+          published_at: string | null
+          source: string
+          source_payload_id: string
+          status: string
+          title: string
+          updated_at: string
+          workplace_type: string | null
+        }
+        Insert: {
+          candidate_id: string
+          canonical_url: string
+          company_name: string
+          content_checksum: string
+          created_at?: string
+          deleted_at?: string | null
+          description: string
+          employment_type?: string | null
+          expires_at?: string | null
+          external_id?: string | null
+          id?: string
+          location?: string | null
+          published_at?: string | null
+          source: string
+          source_payload_id: string
+          status?: string
+          title: string
+          updated_at?: string
+          workplace_type?: string | null
+        }
+        Update: {
+          candidate_id?: string
+          canonical_url?: string
+          company_name?: string
+          content_checksum?: string
+          created_at?: string
+          deleted_at?: string | null
+          description?: string
+          employment_type?: string | null
+          expires_at?: string | null
+          external_id?: string | null
+          id?: string
+          location?: string | null
+          published_at?: string | null
+          source?: string
+          source_payload_id?: string
+          status?: string
+          title?: string
+          updated_at?: string
+          workplace_type?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "jobs_candidate_id_fkey"
+            columns: ["candidate_id"]
+            isOneToOne: false
+            referencedRelation: "candidates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "jobs_source_payload_id_fkey"
+            columns: ["source_payload_id"]
+            isOneToOne: false
+            referencedRelation: "jobs_raw"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      jobs_raw: {
+        Row: {
+          candidate_id: string
+          canonical_url: string
+          created_at: string
+          deleted_at: string | null
+          external_id: string | null
+          fetched_at: string
+          id: string
+          payload: Json
+          payload_checksum: string
+          source: string
+        }
+        Insert: {
+          candidate_id: string
+          canonical_url: string
+          created_at?: string
+          deleted_at?: string | null
+          external_id?: string | null
+          fetched_at: string
+          id?: string
+          payload: Json
+          payload_checksum: string
+          source: string
+        }
+        Update: {
+          candidate_id?: string
+          canonical_url?: string
+          created_at?: string
+          deleted_at?: string | null
+          external_id?: string | null
+          fetched_at?: string
+          id?: string
+          payload?: Json
+          payload_checksum?: string
+          source?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "jobs_raw_candidate_id_fkey"
+            columns: ["candidate_id"]
+            isOneToOne: false
+            referencedRelation: "candidates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profile_documents: {
         Row: {
           byte_size: number
@@ -192,6 +365,32 @@ export type Database = {
           profile_id: string
           skill_count: number
           uploaded_at: string
+        }[]
+      }
+      upsert_job_ingestion: {
+        Args: {
+          p_candidate_id: string
+          p_canonical_url: string
+          p_company_name: string
+          p_content_checksum: string
+          p_description: string
+          p_employment_type: string
+          p_expires_at: string
+          p_external_id: string
+          p_fetched_at: string
+          p_location: string
+          p_payload: Json
+          p_payload_checksum: string
+          p_published_at: string
+          p_skills: Json
+          p_source: string
+          p_title: string
+          p_workplace_type: string
+        }
+        Returns: {
+          changed: boolean
+          job_id: string
+          raw_id: string
         }[]
       }
     }
