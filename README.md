@@ -27,3 +27,9 @@ The document must have a `.md` filename and include `# Name` and `## Skills` hea
 ## Job source boundary
 
 Source modules such as future LinkedIn, Jobstreet, or Glints adapters must only collect external records and yield `RawJobInput` values through the `JobSourceAdapter` interface. They must not import Supabase or matching services. `JobIngestionService` performs deterministic URL canonicalization, checksums, normalization, and persistence through the authenticated repository.
+
+## Matching and AI foundation
+
+The intelligence layer uses SumoPod through an OpenAI-compatible adapter. Configure `AI_API_KEY`, `AI_BASE_URL`, `AI_CHAT_MODEL`, `AI_EMBEDDING_MODEL`, and `AI_EMBEDDING_DIMENSIONS=1536` in `.env`. The matching pipeline is vector retrieval, deterministic scoring, then bounded structured LLM evaluation. Provider failures preserve source data and return typed failure states.
+
+The vector migration is remote Supabase state and must be reviewed before deployment. The matching API contract is `GET /matching/jobs/:candidateId`; scraper implementations, frontend work, and auto-apply remain out of scope.

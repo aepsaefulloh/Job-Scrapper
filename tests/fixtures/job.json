@@ -1,0 +1,7 @@
+{
+  "title": "Backend Engineer",
+  "company": "Example Co",
+  "description": "Build TypeScript APIs with PostgreSQL.",
+  "location": "Remote",
+  "skills": ["typescript", "postgresql"]
+}
