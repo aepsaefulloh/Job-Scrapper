@@ -10,3 +10,5 @@ Task 6: complete (tests: npm test -- tests/unit/matching/vector-search.test.ts -
 Task 7: complete (tests: npm test -- tests/unit/matching/scorer.test.ts tests/unit/matching/llm-parser.test.ts -> 4/4 pass; typecheck pass)
 Task 8: Ruling: matching route dependencies remain injectable in createApp; production composition is deferred until a job-context repository is added, preventing a fake/no-op production recommendation path.
 Task 8: complete (tests: npm test -- tests/integration/api/matching.test.ts -> 3/3 pass; typecheck and build pass)
+Task 9: Ruling: existing environment tests were updated with the newly required AI configuration fields; production configuration remains strict so missing provider credentials fail fast.
+Task 9: complete (tests: npm test -> 22 files/48 tests pass; typecheck and build pass; fixtures/ADRs/README added)
