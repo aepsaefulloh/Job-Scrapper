@@ -23,3 +23,7 @@ curl --request POST http://localhost:3000/v1/profile/document \
 ```
 
 The document must have a `.md` filename and include `# Name` and `## Skills` headings. Uploaded source documents are stored in the private `candidate-profile-documents` bucket. The API uses the caller's Supabase access token for both Storage and database operations, so RLS prevents access to other candidates' data.
+
+## Job source boundary
+
+Source modules such as future LinkedIn, Jobstreet, or Glints adapters must only collect external records and yield `RawJobInput` values through the `JobSourceAdapter` interface. They must not import Supabase or matching services. `JobIngestionService` performs deterministic URL canonicalization, checksums, normalization, and persistence through the authenticated repository.
