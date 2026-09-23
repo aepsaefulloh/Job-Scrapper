@@ -37,4 +37,5 @@ export type JobIngestionResult = {
   rawId: string;
   jobId: string;
   changed: boolean;
+  created?: boolean;
 };
