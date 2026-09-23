@@ -383,6 +383,74 @@ export type Database = {
           },
         ]
       }
+      scrape_runs: {
+        Row: {
+          candidate_id: string
+          created_at: string
+          discovered_count: number
+          duplicate_count: number
+          error_code: string | null
+          error_message: string | null
+          failed_count: number
+          finished_at: string | null
+          id: string
+          inserted_count: number
+          keyword: string | null
+          location: string | null
+          metadata: Json
+          source: string
+          started_at: string
+          status: string
+          updated_count: number
+        }
+        Insert: {
+          candidate_id: string
+          created_at?: string
+          discovered_count?: number
+          duplicate_count?: number
+          error_code?: string | null
+          error_message?: string | null
+          failed_count?: number
+          finished_at?: string | null
+          id?: string
+          inserted_count?: number
+          keyword?: string | null
+          location?: string | null
+          metadata?: Json
+          source: string
+          started_at?: string
+          status: string
+          updated_count?: number
+        }
+        Update: {
+          candidate_id?: string
+          created_at?: string
+          discovered_count?: number
+          duplicate_count?: number
+          error_code?: string | null
+          error_message?: string | null
+          failed_count?: number
+          finished_at?: string | null
+          id?: string
+          inserted_count?: number
+          keyword?: string | null
+          location?: string | null
+          metadata?: Json
+          source?: string
+          started_at?: string
+          status?: string
+          updated_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scrape_runs_candidate_id_fkey"
+            columns: ["candidate_id"]
+            isOneToOne: false
+            referencedRelation: "candidates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never

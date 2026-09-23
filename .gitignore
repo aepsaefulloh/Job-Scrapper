@@ -15,6 +15,7 @@ candidate.md
 supabase/.temp/
 .worktrees/
 .superpowers/
+.codex/
 browser-data/
 browser-downloads/
 browser-profiles/
