@@ -1,41 +1,19 @@
 {
-  "name": "candidate-profile-system",
-  "version": "1.0.0",
-  "description": "",
-  "main": "dist/server.js",
-  "directories": {
-    "doc": "docs"
-  },
-  "scripts": {
-    "dev": "tsx watch src/server.ts",
-    "build": "tsc -p tsconfig.json",
-    "start": "node dist/server.js",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "typecheck": "tsc --noEmit",
-    "db:types": "supabase gen types typescript --linked > src/infrastructure/supabase/database.types.ts"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "name": "job-scrapper-monorepo",
+  "private": true,
   "type": "module",
-  "dependencies": {
-    "@supabase/supabase-js": "^2.117.0",
-    "dotenv": "^17.4.2",
-    "express": "^5.2.1",
-    "multer": "^2.4.0",
-    "node-cron": "^4.6.0",
-    "playwright-core": "^1.63.0",
-    "zod": "^4.6.5"
-  },
-  "devDependencies": {
-    "@types/express": "^5.0.6",
-    "@types/multer": "^2.2.0",
-    "@types/node": "^22.20.4",
-    "@types/supertest": "^6.0.3",
-    "supertest": "^7.3.0",
-    "tsx": "^4.23.15",
-    "typescript": "^5.9.3",
-    "vitest": "^4.1.11"
+  "workspaces": [
+    "backend",
+    "frontend"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace=backend",
+    "dev:backend": "npm run dev --workspace=backend",
+    "dev:frontend": "npm run dev --workspace=frontend",
+    "test": "npm run test --workspace=backend",
+    "test:backend": "npm run test --workspace=backend",
+    "test:frontend": "npm run test --workspace=frontend",
+    "typecheck": "npm run typecheck --workspace=backend",
+    "build": "npm run build --workspace=backend"
   }
 }

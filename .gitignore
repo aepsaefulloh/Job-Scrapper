@@ -7,12 +7,16 @@ coverage/
 .env
 .env.*
 !.env.example
+backend/.env
+backend/.env.*
+!backend/.env.example
 candidate.md
 *.candidate.md
 
 # Local Supabase and agent workspaces
 .supabase/
 supabase/.temp/
+backend/supabase/.temp/
 .worktrees/
 .superpowers/
 .codex/
