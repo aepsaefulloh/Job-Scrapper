@@ -73,9 +73,11 @@ describe('SearchProfileService', () => {
   });
 
   describe('getOrDerive', () => {
-    it('returns existing profile from repo without saving', async () => {
+    it('returns existing profile from repo without saving when source profile matches', async () => {
       const existing: CandidateSearchProfile = {
         candidateId: 'cand-1',
+        sourceProfileId: 'prof-1',
+        sourceProfileUpdatedAt: '2026-01-01T00:00:00Z',
         targetRoles: ['Accountant'],
         roleAliases: [],
         primarySkills: ['Excel'],
@@ -100,6 +102,47 @@ describe('SearchProfileService', () => {
       const result = await svc.getOrDerive('cand-1', financeProfile);
       expect(result.candidateId).toBe('cand-1');
       expect(repoWithExisting.save).not.toHaveBeenCalled();
+    });
+
+    it('invalidates and re-derives search profile when candidate profile is updated', async () => {
+      const existingFromV1: CandidateSearchProfile = {
+        candidateId: 'cand-1',
+        sourceProfileId: 'prof-1',
+        sourceProfileUpdatedAt: '2026-01-01T00:00:00Z',
+        targetRoles: ['Junior Accountant'],
+        roleAliases: [],
+        primarySkills: ['Excel'],
+        secondarySkills: [],
+        industries: [],
+        seniority: [],
+        preferredLocations: ['Bandung'],
+        workModes: [],
+        employmentTypes: ['full-time'],
+        excludedRoles: ['sales'],
+        excludedKeywords: [],
+        excludedCompanies: [],
+        languages: [],
+        sources: ['jobstreet'],
+        generatedAt: '2026-01-01T00:00:00Z',
+      };
+      const saveRepo: SearchProfileRepository = {
+        save: vi.fn().mockResolvedValue(undefined),
+        get: vi.fn().mockResolvedValue(existingFromV1),
+      };
+      const svc = new SearchProfileService(saveRepo);
+      const updatedProfile: CandidateProfileDetail = {
+        ...financeProfile,
+        id: 'prof-2',
+        headline: 'Senior Accountant & Tax Specialist',
+        updatedAt: '2026-02-01T00:00:00Z',
+      };
+      const result = await svc.getOrDerive('cand-1', updatedProfile);
+      expect(result.candidateId).toBe('cand-1');
+      expect(result.sourceProfileId).toBe('prof-2');
+      expect(result.targetRoles).toContain('Senior Accountant & Tax Specialist');
+      expect(result.preferredLocations).toEqual(['Bandung']);
+      expect(result.excludedRoles).toEqual(['sales']);
+      expect(saveRepo.save).toHaveBeenCalledOnce();
     });
 
     it('derives and saves when no profile exists', async () => {

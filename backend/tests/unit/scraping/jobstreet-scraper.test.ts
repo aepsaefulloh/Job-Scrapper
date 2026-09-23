@@ -19,9 +19,9 @@ describe('JobstreetScraper', () => {
 
     expect(jobs).toHaveLength(2);
     expect(goto.mock.calls.map(([url]) => url)).toEqual([
-      'https://example.test/en/jobs?keyword=backend&page=1',
+      'https://example.test/id/jobs?keyword=backend&page=1',
       'https://example.test/job/1',
-      'https://example.test/en/jobs?keyword=backend&page=2',
+      'https://example.test/id/jobs?keyword=backend&page=2',
       'https://example.test/job/2'
     ]);
     expect(close).toHaveBeenCalledOnce();

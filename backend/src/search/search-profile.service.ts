@@ -12,10 +12,11 @@ const DEFAULT_SOURCES = ['jobstreet'] as const;
  */
 function deriveTargetRoles(headline: string | null): string[] {
   if (!headline) return [];
-  const cleaned = headline
-    .replace(/^(sebagai|as|seorang|a|an)\s+/i, '')
-    .trim();
-  return cleaned ? [cleaned] : [];
+  const parts = headline
+    .split(/[\/|,•·;]/)
+    .map(p => p.replace(/^(sebagai|as|seorang|a|an)\s+/i, '').trim())
+    .filter(p => p.length > 0);
+  return parts.length > 0 ? parts : [headline.trim()];
 }
 
 export class SearchProfileService {
@@ -32,6 +33,8 @@ export class SearchProfileService {
     const allSkills = profile.skills.map(s => s.displayName);
     return {
       candidateId,
+      sourceProfileId: profile.id,
+      sourceProfileUpdatedAt: profile.updatedAt,
       targetRoles: deriveTargetRoles(profile.headline ?? null),
       roleAliases: [],
       primarySkills: allSkills.slice(0, PRIMARY_SKILL_LIMIT),
@@ -51,15 +54,33 @@ export class SearchProfileService {
   }
 
   /**
-   * Return the existing persisted search profile, or derive and save a new one.
+   * Return the existing persisted search profile if fresh, or derive and save an updated one.
+   * Profile is invalidated if source candidate profile ID or updatedAt has changed.
    */
   public async getOrDerive(
     candidateId: string,
     profile: CandidateProfileDetail
   ): Promise<CandidateSearchProfile> {
     const existing = await this.repository.get(candidateId);
-    if (existing) return existing;
+    if (
+      existing &&
+      existing.sourceProfileId === profile.id &&
+      existing.sourceProfileUpdatedAt === profile.updatedAt
+    ) {
+      return existing;
+    }
+
     const derived = this.deriveFromProfile(profile, candidateId);
+    if (existing) {
+      if (existing.preferredLocations.length > 0) derived.preferredLocations = existing.preferredLocations;
+      if (existing.workModes.length > 0) derived.workModes = existing.workModes;
+      if (existing.employmentTypes.length > 0) derived.employmentTypes = existing.employmentTypes;
+      if (existing.excludedRoles.length > 0) derived.excludedRoles = existing.excludedRoles;
+      if (existing.excludedKeywords.length > 0) derived.excludedKeywords = existing.excludedKeywords;
+      if (existing.excludedCompanies.length > 0) derived.excludedCompanies = existing.excludedCompanies;
+      if (existing.sources.length > 0) derived.sources = existing.sources;
+    }
+
     await this.repository.save(derived);
     return derived;
   }

@@ -11,24 +11,32 @@ export class SupabaseSearchProfileRepository implements SearchProfileRepository 
   public constructor(private readonly client: SupabaseClient<Database>) {}
 
   public async get(candidateId: string): Promise<CandidateSearchProfile | null> {
-    // candidate_search_profiles is not in generated types yet — cast to bypass
-    const { data, error } = await (this.client as SupabaseClient)
+    const { data, error } = await this.client
       .from('candidate_search_profiles')
-      .select('profile_data')
+      .select('profile_data, source_profile_id, source_profile_updated_at')
       .eq('candidate_id', candidateId)
       .maybeSingle();
     if (error) throw new Error('Could not load candidate search profile.');
     if (!data) return null;
-    return (data as { profile_data: unknown }).profile_data as CandidateSearchProfile;
+    const profile = data.profile_data as unknown as CandidateSearchProfile;
+    if (data.source_profile_id && !profile.sourceProfileId) {
+      profile.sourceProfileId = data.source_profile_id;
+    }
+    if (data.source_profile_updated_at && !profile.sourceProfileUpdatedAt) {
+      profile.sourceProfileUpdatedAt = data.source_profile_updated_at;
+    }
+    return profile;
   }
 
   public async save(profile: CandidateSearchProfile): Promise<void> {
-    const { error } = await (this.client as SupabaseClient)
+    const { error } = await this.client
       .from('candidate_search_profiles')
       .upsert(
         {
           candidate_id: profile.candidateId,
-          profile_data: profile,
+          source_profile_id: profile.sourceProfileId ?? null,
+          source_profile_updated_at: profile.sourceProfileUpdatedAt ?? null,
+          profile_data: profile as never,
           generated_at: profile.generatedAt,
           updated_at: new Date().toISOString(),
         },

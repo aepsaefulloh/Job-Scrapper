@@ -113,6 +113,54 @@ export type Database = {
           },
         ]
       }
+      candidate_search_profiles: {
+        Row: {
+          candidate_id: string
+          created_at: string
+          generated_at: string
+          id: string
+          profile_data: Json
+          source_profile_id: string | null
+          source_profile_updated_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          candidate_id: string
+          created_at?: string
+          generated_at?: string
+          id?: string
+          profile_data: Json
+          source_profile_id?: string | null
+          source_profile_updated_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          candidate_id?: string
+          created_at?: string
+          generated_at?: string
+          id?: string
+          profile_data?: Json
+          source_profile_id?: string | null
+          source_profile_updated_at?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "candidate_search_profiles_candidate_id_fkey"
+            columns: ["candidate_id"]
+            isOneToOne: true
+            referencedRelation: "candidates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "candidate_search_profiles_source_profile_id_fkey"
+            columns: ["source_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       candidates: {
         Row: {
           created_at: string

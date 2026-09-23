@@ -3,6 +3,8 @@ export type EmploymentType = 'full-time' | 'part-time' | 'contract' | 'internshi
 
 export type CandidateSearchProfile = {
   candidateId: string;
+  sourceProfileId?: string;
+  sourceProfileUpdatedAt?: string;
   targetRoles: string[];
   roleAliases: string[];
   primarySkills: string[];

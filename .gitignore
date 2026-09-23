@@ -28,3 +28,5 @@ browser-profiles/
 browser-sessions/
 playwright-report/
 test-results/
+*camoufox_opts.json
+

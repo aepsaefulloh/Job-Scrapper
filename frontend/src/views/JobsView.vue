@@ -3,6 +3,7 @@ import { ref, onMounted } from 'vue';
 import AppLayout from '../layouts/AppLayout.vue';
 import JobFilterBar from '../components/jobs/JobFilterBar.vue';
 import JobRow from '../components/jobs/JobRow.vue';
+import SearchControlCard from '../components/jobs/SearchControlCard.vue';
 import LoadingSkeleton from '../components/common/LoadingSkeleton.vue';
 import EmptyState from '../components/common/EmptyState.vue';
 import ErrorState from '../components/common/ErrorState.vue';
@@ -66,6 +67,9 @@ onMounted(() => {
           Showing {{ jobs.length }} of {{ total }} jobs
         </div>
       </div>
+
+      <!-- Search Control & Scrape Run Status -->
+      <SearchControlCard @search-completed="loadJobs" />
 
       <!-- Filter Bar -->
       <JobFilterBar @filter="handleFilter" />

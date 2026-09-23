@@ -14,7 +14,7 @@ export class JobstreetScraper implements JobScraper {
         const firstPage = query.page ?? 1;
         const pageCount = query.maxPages ?? 1;
         for (let page = firstPage; page < firstPage + pageCount; page += 1) {
-          const url = new URL('/en/jobs', this.baseUrl);
+          const url = new URL('/id/jobs', this.baseUrl);
           if (query.keyword) url.searchParams.set('keyword', query.keyword);
           if (query.location) url.searchParams.set('location', query.location);
           if (query.page !== undefined || pageCount > 1) url.searchParams.set('page', String(page));

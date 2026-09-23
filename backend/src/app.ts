@@ -18,6 +18,13 @@ import {
 import { APPLICATION_STATUSES, type ApplicationStatus } from './domain/application/application-types.js';
 import type { Logger } from './logging/logger.interface.js';
 
+import {
+  CandidateSearchService,
+  SearchAlreadyRunningError,
+  SearchProfileNotReadyError,
+} from './search/candidate-search.service.js';
+import type { ScrapeRunService } from './scraping/scrape-run.service.js';
+
 export type ProfileServiceType = {
   upload(input: { candidateId: string; fileName: string; contents: string }): Promise<ProfileUploadResult>;
   getProfile?(candidateId: string): Promise<CandidateProfileDetail | null>;
@@ -38,7 +45,10 @@ export type AppDependencies = {
   createApplicationService?: (accessToken: string) => ApplicationService;
   createSearchProfileService?: (accessToken: string) => {
     get(candidateId: string): Promise<import('./search/search-types.js').CandidateSearchProfile | null>;
+    getOrDerive?(candidateId: string, profile: CandidateProfileDetail): Promise<import('./search/search-types.js').CandidateSearchProfile>;
   };
+  createCandidateSearchService?: (accessToken: string) => CandidateSearchService;
+  createScrapeRunService?: (accessToken: string) => ScrapeRunService;
   staticDir?: string;
   logger?: Logger;
 };
@@ -78,9 +88,68 @@ export function createApp(dependencies: AppDependencies): Express {
     router.get('/search-profile', authenticate, async (req, res, next) => {
       try {
         const svc = dependencies.createSearchProfileService!(res.locals.auth.accessToken);
-        const profile = await svc.get(res.locals.auth.userId);
+        let profile = await svc.get(res.locals.auth.userId);
+        const candidateProfile = await dependencies.createProfileService(res.locals.auth.accessToken).getProfile?.(res.locals.auth.userId);
+        if (candidateProfile && svc.getOrDerive) {
+          profile = await svc.getOrDerive(res.locals.auth.userId, candidateProfile);
+        }
         if (!profile) return void res.status(404).json({ error: { code: 'SEARCH_PROFILE_NOT_FOUND', message: 'No search profile found. Upload a candidate profile to activate job discovery.' } });
         res.json(profile);
+      } catch (error) {
+        next(error);
+      }
+    });
+  }
+
+  if (dependencies.createCandidateSearchService) {
+    router.post('/search/run', authenticate, async (req, res, next) => {
+      try {
+        const service = dependencies.createCandidateSearchService!(res.locals.auth.accessToken);
+        const maxPages = req.body?.maxPages !== undefined ? Number(req.body.maxPages) : undefined;
+        const result = await service.runManualSearch(res.locals.auth.userId, { maxPages });
+        res.status(202).json(result);
+      } catch (error) {
+        if (error instanceof SearchProfileNotReadyError) {
+          return void res.status(400).json({ error: { code: error.code, message: error.message } });
+        }
+        if (error instanceof SearchAlreadyRunningError) {
+          return void res.status(409).json({ error: { code: error.code, message: error.message } });
+        }
+        next(error);
+      }
+    });
+  }
+
+  if (dependencies.createScrapeRunService) {
+    router.get('/scrape-runs/latest', authenticate, async (req, res, next) => {
+      try {
+        const service = dependencies.createScrapeRunService!(res.locals.auth.accessToken);
+        const latest = await service.getLatest(res.locals.auth.userId);
+        res.json({ latest });
+      } catch (error) {
+        next(error);
+      }
+    });
+
+    router.get('/scrape-runs/:id', authenticate, async (req, res, next) => {
+      try {
+        const service = dependencies.createScrapeRunService!(res.locals.auth.accessToken);
+        const run = await service.getById(res.locals.auth.userId, String(req.params.id));
+        if (!run) {
+          return void res.status(404).json({ error: { code: 'SCRAPE_RUN_NOT_FOUND', message: 'Scrape run was not found.' } });
+        }
+        res.json(run);
+      } catch (error) {
+        next(error);
+      }
+    });
+
+    router.get('/scrape-runs', authenticate, async (req, res, next) => {
+      try {
+        const limit = req.query.limit ? Number(req.query.limit) : 10;
+        const service = dependencies.createScrapeRunService!(res.locals.auth.accessToken);
+        const items = await service.list(res.locals.auth.userId, limit);
+        res.json({ items });
       } catch (error) {
         next(error);
       }

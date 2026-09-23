@@ -33,10 +33,35 @@ import { SearchProfileService } from './search/search-profile.service.js';
 import { SupabaseSearchProfileRepository } from './search/search-profile.repository.js';
 import { SearchPlanner } from './search/search-planner.js';
 
+import { CandidateSearchService } from './search/candidate-search.service.js';
+
 const env = loadEnv(process.env); const logger = new StructuredLogger();
 function createEmbeddingRunner(accessToken: string, candidateId: string) {
   const client = createUserSupabaseClient(accessToken, env); const provider = new SumoPodProvider({ baseUrl: env.aiBaseUrl, apiKey: env.aiApiKey }); const matching = new SupabaseMatchingRepository(client); const embeddings = new EmbeddingService(provider, { model: env.aiEmbeddingModel, dimensions: env.aiEmbeddingDimensions });
   return { embed: async (jobId: string) => { const job = await matching.getJobContext(candidateId, jobId); const result = await embeddings.embedText(job.text); const { error } = await client.from('jobs').update({ embedding_status: 'ready', embedding: result.vector as never, embedding_model: result.model, embedding_dimensions: result.dimensions, embedding_error: null, embedding_updated_at: new Date().toISOString() }).eq('candidate_id', candidateId).eq('id', jobId); if (error) throw new Error('Job embedding could not be persisted.'); } };
+}
+function createCandidateSearchService(accessToken: string, candidateId?: string) {
+  if (!env.camoufoxExecutablePath) throw new Error('CAMOUFOX_EXECUTABLE_PATH is required for scraping.');
+  const client = createUserSupabaseClient(accessToken, env);
+  const searchProfileService = new SearchProfileService(new SupabaseSearchProfileRepository(client));
+  const profileRepo = new SupabaseProfileRepository(client);
+  const searchPlanner = new SearchPlanner();
+  const scrapeRunRepo = new SupabaseScrapeRunRepository(client);
+  const embedding = createEmbeddingRunner(accessToken, candidateId ?? '');
+  const orchestrator = new ScraperOrchestrator(
+    [new JobstreetScraper(new CamoufoxBrowserService(env.camoufoxExecutablePath))],
+    new JobIngestionService(new SupabaseJobRepository(client)),
+    embedding,
+    logger
+  );
+  return new CandidateSearchService(
+    searchProfileService,
+    profileRepo,
+    searchPlanner,
+    scrapeRunRepo,
+    orchestrator,
+    logger
+  );
 }
 async function executeScrape(input: { candidateId: string; source: string; keyword?: string; location?: string; remote?: boolean; maxPages?: number }, accessToken: string) {
   if (!env.camoufoxExecutablePath) throw new Error('CAMOUFOX_EXECUTABLE_PATH is required for scraping.');
@@ -64,35 +89,27 @@ const app = createApp({
     const client = createUserSupabaseClient(accessToken, env);
     return new SearchProfileService(new SupabaseSearchProfileRepository(client));
   },
+  createCandidateSearchService: (accessToken) => createCandidateSearchService(accessToken),
+  createScrapeRunService: (accessToken) => {
+    const client = createUserSupabaseClient(accessToken, env);
+    return new ScrapeRunService(new SupabaseScrapeRunRepository(client));
+  },
 });
 const scheduler = new SchedulerService(new NodeCronDriver(), logger); const scheduledEnabled = env.jobScrapeEnabled || env.jobEmbeddingRecoveryEnabled;
 if (scheduledEnabled) {
-  const candidateId = env.jobScrapeCandidateId!; const accessToken = env.jobScrapeAccessToken!; const client = createUserSupabaseClient(accessToken, env); const scrapeTask = new ScheduledScrapeTask(new SupabaseScrapeRunRepository(client), (id, search) => executeScrape({ candidateId: id, ...search }, accessToken), logger); const recovery = new EmbeddingRecoveryService(new SupabaseJobRepository(client), createEmbeddingRunner(accessToken, candidateId), logger);
+  const candidateId = env.jobScrapeCandidateId!; const accessToken = env.jobScrapeAccessToken!; const client = createUserSupabaseClient(accessToken, env); const recovery = new EmbeddingRecoveryService(new SupabaseJobRepository(client), createEmbeddingRunner(accessToken, candidateId), logger);
   scheduler.start({ enabled: true, cron: env.jobScrapeCron, timezone: env.jobScrapeTimezone, candidateId, searches: env.scheduledJobSearches }, async (id, _searches) => {
     if (env.jobScrapeEnabled) {
       try {
-        const tickClient = createUserSupabaseClient(accessToken, env);
-        const searchSvc = new SearchProfileService(new SupabaseSearchProfileRepository(tickClient));
-        const profileRepo = new SupabaseProfileRepository(tickClient);
-        const planner = new SearchPlanner();
-
-        let searchProfile = await searchSvc.get(id);
-        if (!searchProfile) {
-          const candidateProfile = await profileRepo.getActiveProfile(id);
-          if (candidateProfile) {
-            searchProfile = await searchSvc.getOrDerive(id, candidateProfile);
-          }
-        }
-
-        const searches = searchProfile
-          ? planner.createIntents(searchProfile, { defaultMaxPages: 5 })
-          : env.scheduledJobSearches;
-
-        for (const search of searches) {
-          try { await scrapeTask.run(id, search); } catch {}
-        }
-      } catch {
-        logger.error({ event: 'scheduler.plan.failed', candidateId: id, errorCode: 'SEARCH_PLAN_FAILED' });
+        const searchService = createCandidateSearchService(accessToken, id);
+        await searchService.runScheduledSearch(id, env.scheduledJobSearches);
+      } catch (err) {
+        logger.error({
+          event: 'scheduler.search.failed',
+          candidateId: id,
+          errorCode: 'SCHEDULED_SEARCH_FAILED',
+          message: err instanceof Error ? err.message : 'Scheduled search failed',
+        });
       }
     }
     if (env.jobEmbeddingRecoveryEnabled) {
