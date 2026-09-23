@@ -14,6 +14,105 @@ export type Database = {
   }
   public: {
     Tables: {
+      application_materials: {
+        Row: {
+          application_id: string
+          candidate_id: string
+          content: string
+          created_at: string
+          id: string
+          material_type: string
+          metadata: Json
+          prompt_input: string | null
+        }
+        Insert: {
+          application_id: string
+          candidate_id: string
+          content: string
+          created_at?: string
+          id?: string
+          material_type: string
+          metadata?: Json
+          prompt_input?: string | null
+        }
+        Update: {
+          application_id?: string
+          candidate_id?: string
+          content?: string
+          created_at?: string
+          id?: string
+          material_type?: string
+          metadata?: Json
+          prompt_input?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "application_materials_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: false
+            referencedRelation: "applications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "application_materials_candidate_id_fkey"
+            columns: ["candidate_id"]
+            isOneToOne: false
+            referencedRelation: "candidates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      applications: {
+        Row: {
+          applied_at: string | null
+          candidate_id: string
+          created_at: string
+          deleted_at: string | null
+          id: string
+          job_id: string
+          notes: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          applied_at?: string | null
+          candidate_id: string
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          job_id: string
+          notes?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          applied_at?: string | null
+          candidate_id?: string
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          job_id?: string
+          notes?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "applications_candidate_id_fkey"
+            columns: ["candidate_id"]
+            isOneToOne: false
+            referencedRelation: "candidates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "applications_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       candidates: {
         Row: {
           created_at: string
@@ -647,4 +746,3 @@ export const Constants = {
     Enums: {},
   },
 } as const
-

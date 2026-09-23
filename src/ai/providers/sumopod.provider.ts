@@ -10,7 +10,7 @@ export class SumoPodProvider implements EmbeddingProvider, CompletionProvider {
 
   public constructor(private readonly config: ProviderConfig) {
     this.baseUrl = config.baseUrl.replace(/\/$/, '');
-    this.timeoutMs = config.timeoutMs ?? 30_000;
+    this.timeoutMs = config.timeoutMs ?? 60_000;
   }
 
   public async embed(request: EmbeddingRequest): Promise<EmbeddingResult> {
