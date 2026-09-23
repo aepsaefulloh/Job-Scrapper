@@ -17,6 +17,9 @@ import { NodeCronDriver } from './scheduler/node-cron.driver.js';
 import { SchedulerService } from './scheduler/scheduler.service.js';
 import { ScheduledScrapeTask } from './scheduler/scheduled-scrape-task.js';
 import { JobstreetScraper } from './scraping/providers/jobstreet/jobstreet.scraper.js';
+import { ApplicationAssistantService } from './ai/assistant/application-assistant.service.js';
+import { SupabaseApplicationRepository } from './infrastructure/supabase/application-repository.js';
+import { ApplicationService } from './services/application-service.js';
 import { ScrapeRunService } from './scraping/scrape-run.service.js';
 import { ScraperOrchestrator } from './scraping/scraper.orchestrator.js';
 import { EmbeddingRecoveryService } from './services/embedding-recovery-service.js';
@@ -41,6 +44,13 @@ const app = createApp({
   createProfileService: (accessToken) => { const client = createUserSupabaseClient(accessToken, env); return new ProfileService(new SupabaseProfileDocumentStorage(client), new SupabaseProfileRepository(client)); },
   createMatchingService: (accessToken) => { const client = createUserSupabaseClient(accessToken, env); const provider = new SumoPodProvider({ baseUrl: env.aiBaseUrl, apiKey: env.aiApiKey }); const repository = new SupabaseMatchingRepository(client); return new DefaultMatchingService(new VectorSearchService(repository, { maxLimit: 200 }), repository, new LlmService(provider), env.aiChatModel); },
   createJobService: (accessToken) => new JobService(new SupabaseJobRepository(createUserSupabaseClient(accessToken, env))), createJobIngestionService: (accessToken) => new JobIngestionService(new SupabaseJobRepository(createUserSupabaseClient(accessToken, env))), createJobEmbeddingService: createEmbeddingRunner, jobService: { scrape: executeScrape },
+  createApplicationService: (accessToken) => {
+    const client = createUserSupabaseClient(accessToken, env);
+    const provider = new SumoPodProvider({ baseUrl: env.aiBaseUrl, apiKey: env.aiApiKey });
+    const matchingRepo = new SupabaseMatchingRepository(client);
+    const assistant = new ApplicationAssistantService(new LlmService(provider), env.aiChatModel);
+    return new ApplicationService(new SupabaseApplicationRepository(client), matchingRepo, assistant, logger);
+  },
 });
 const scheduler = new SchedulerService(new NodeCronDriver(), logger); const scheduledEnabled = env.jobScrapeEnabled || env.jobEmbeddingRecoveryEnabled;
 if (scheduledEnabled) {
