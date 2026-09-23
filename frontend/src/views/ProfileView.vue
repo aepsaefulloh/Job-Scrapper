@@ -2,6 +2,7 @@
 import { onMounted } from 'vue';
 import AppLayout from '../layouts/AppLayout.vue';
 import ProfileUploader from '../components/profile/ProfileUploader.vue';
+import SearchProfileCard from '../components/profile/SearchProfileCard.vue';
 import SkillTag from '../components/common/SkillTag.vue';
 import LoadingSkeleton from '../components/common/LoadingSkeleton.vue';
 import ErrorState from '../components/common/ErrorState.vue';
@@ -28,6 +29,9 @@ onMounted(() => {
 
       <!-- Markdown Uploader -->
       <ProfileUploader @uploaded="fetchProfile" />
+
+      <!-- Search Profile Card -->
+      <SearchProfileCard />
 
       <!-- Loading / Error states -->
       <LoadingSkeleton v-if="loading" variant="detail" />
