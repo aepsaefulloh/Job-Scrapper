@@ -21,12 +21,21 @@ Implemented:
 - Application tracking and application assistant workflows (backend services, repository, and AI material generation: cover letter, introduction, recruiter answer).
 - Monorepo restructure (`backend/` and `frontend/`) with unified `/api` prefix and Express production SPA serving (`/* -> frontend/dist`).
 - Vue 3 + Vite + Tailwind CSS dashboard ("JobToolkit") with editorial design, Supabase Auth, jobs discovery, application tracking (list/table view), AI material generator, profile viewer, and responsive navigation.
+- Candidate search profile model derived from candidate profile (persisted and reused, no LLM on every run).
+- Role alias registry and deterministic query expansion (career-domain agnostic).
+- Search planner that generates `JobSearchIntent[]` for any professional background.
+- Hard-filter eligibility layer (does not reject on skill mismatch).
+- Scheduler refactored to candidate-driven plans with hardcoded fallback.
+- `GET /api/search-profile` API endpoint.
+- Frontend `SearchProfileCard` (read-only transparency of agent search state).
 - Unit tests, integration tests, strict TypeScript checking, and production build across both workspaces.
 
 
 Not yet implemented:
 
-- LinkedIn or Glints scraper implementations.
+- Frontend editor for search profile preferences (locations, exclusions, sources).
+- Glints or Loker.id scraper implementations.
+- Application Policy and Assisted Apply workflows.
 - Runtime cross-user RLS tests with two authenticated test users.
 
 ## Architecture Rules
