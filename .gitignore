@@ -15,3 +15,11 @@ candidate.md
 supabase/.temp/
 .worktrees/
 .superpowers/
+.codex/
+scratch/
+browser-data/
+browser-downloads/
+browser-profiles/
+browser-sessions/
+playwright-report/
+test-results/

@@ -38,4 +38,23 @@ describe('SupabaseJobRepository', () => {
     await expect(repository.persist(record)).rejects.toThrow('Job could not be saved.');
     await expect(repository.persist(record)).rejects.not.toThrow('secret provider detail');
   });
+
+  it('finds a bounded candidate-owned batch whose embedding is missing or not ready', async () => {
+    const calls: Array<[string, ...unknown[]]> = [];
+    const result = { data: [{ id: 'missing' }], error: null };
+    const query = {
+      select: vi.fn(function (this: unknown, ...args: unknown[]) { calls.push(['select', ...args]); return query; }),
+      eq: vi.fn(function (this: unknown, ...args: unknown[]) { calls.push(['eq', ...args]); return query; }),
+      is: vi.fn(function (this: unknown, ...args: unknown[]) { calls.push(['is', ...args]); return query; }),
+      or: vi.fn(function (this: unknown, ...args: unknown[]) { calls.push(['or', ...args]); return query; }),
+      limit: vi.fn(function (this: unknown, ...args: unknown[]) { calls.push(['limit', ...args]); return Promise.resolve(result); })
+    };
+    const repository = new SupabaseJobRepository({ from: vi.fn().mockReturnValue(query) } as never);
+
+    await expect(repository.findJobsMissingEmbedding('candidate', 1_000)).resolves.toEqual([{ id: 'missing' }]);
+    expect(calls).toContainEqual(['eq', 'candidate_id', 'candidate']);
+    expect(calls).toContainEqual(['is', 'deleted_at', null]);
+    expect(calls).toContainEqual(['or', 'embedding.is.null,embedding_status.neq.ready']);
+    expect(calls).toContainEqual(['limit', 100]);
+  });
 });

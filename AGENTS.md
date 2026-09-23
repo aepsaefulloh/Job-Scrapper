@@ -11,18 +11,18 @@ The candidate profile is the primary source of truth. Human-maintained Markdown 
 Implemented:
 
 - Markdown candidate profile parser and authenticated profile upload API.
-- Supabase PostgreSQL schema for candidates, profiles, profile documents, and skills.
+- Supabase PostgreSQL schema for candidates, profiles, profile documents, skills, and scrape runs.
 - Private Supabase Storage bucket for profile documents.
-- Job ingestion foundation: `jobs_raw`, `jobs`, and `job_skills`.
+- Job ingestion foundation: `jobs_raw`, `jobs`, `job_skills`, and `scrape_runs`.
 - Deterministic job URL normalization, checksums, deduplication, and skill hints.
-- Authenticated repository, ingestion service, source-adapter contract, RLS, and migrations.
+- Authenticated repository, ingestion service, source-adapter contract, RLS, and applied remote migrations.
+- SumoPod AI provider adapter, pgvector embeddings, rule-based matching, and recommendation API.
+- Jobstreet scraper implementation with Camoufox browser session and scheduled ingestion.
 - Unit tests, migration contract tests, strict TypeScript checking, and production build.
 
 Not yet implemented:
 
-- Embeddings, vector search, rule-based matching, and final recommendations.
-- SumoPod AI provider adapter and AI-powered career/application features.
-- LinkedIn, Jobstreet, or Glints scraper implementations.
+- LinkedIn or Glints scraper implementations.
 - Application tracking and application assistant workflows.
 - Runtime cross-user RLS tests with two authenticated test users.
 
@@ -102,9 +102,9 @@ Every important business rule requires a test. Prioritize:
 Run before claiming completion:
 
 ```powershell
-npm test
-npm run typecheck
-npm run build
+bun test
+bun run typecheck
+bun run build
 ```
 
 Use fixtures for candidate Markdown, raw jobs, normalized jobs, and mock AI responses. Tests must be written before production code for new behavior.

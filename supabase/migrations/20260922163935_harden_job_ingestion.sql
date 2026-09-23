@@ -63,6 +63,7 @@ create or replace function public.upsert_job_ingestion(
 returns table (raw_id uuid, job_id uuid, changed boolean)
 language plpgsql security invoker set search_path = ''
 as $$
+#variable_conflict use_column
 declare v_raw_id uuid; v_job_id uuid; v_old_checksum text; v_changed boolean;
 begin
   if auth.uid() is null or auth.uid() <> p_candidate_id then raise exception 'Candidate authentication mismatch.' using errcode = '42501'; end if;
@@ -79,11 +80,19 @@ begin
     values (p_candidate_id, p_source, nullif(p_external_id, ''), p_canonical_url, p_title, p_company_name, p_description, p_location, p_employment_type, p_workplace_type, p_published_at, p_expires_at, v_raw_id, p_content_checksum) returning id into v_job_id;
   elsif v_changed then
     update public.jobs set canonical_url = p_canonical_url, title = p_title, company_name = p_company_name, description = p_description, location = p_location, employment_type = p_employment_type, workplace_type = p_workplace_type, published_at = p_published_at, expires_at = p_expires_at, source_payload_id = v_raw_id, content_checksum = p_content_checksum, updated_at = now() where id = v_job_id;
-    delete from public.job_skills where job_id = v_job_id;
+    delete from public.job_skills where job_skills.job_id = v_job_id;
   end if;
   if v_changed or v_old_checksum is null then
     insert into public.job_skills (candidate_id, job_id, display_name, canonical_name, match_method)
-    select p_candidate_id, v_job_id, skill.display_name, skill.canonical_name, coalesce(skill.match_method, 'keyword') from jsonb_to_recordset(coalesce(p_skills, '[]'::jsonb)) as skill(display_name text, canonical_name text, match_method text) on conflict (job_id, canonical_name) do nothing;
+    select
+      p_candidate_id,
+      v_job_id,
+      coalesce(skill.display_name, skill."displayName"),
+      coalesce(skill.canonical_name, skill."canonicalName"),
+      coalesce(skill.match_method, skill."matchMethod", 'keyword')
+    from jsonb_to_recordset(coalesce(p_skills, '[]'::jsonb))
+      as skill(display_name text, "displayName" text, canonical_name text, "canonicalName" text, match_method text, "matchMethod" text)
+    on conflict (job_id, canonical_name) do nothing;
   end if;
   return query select v_raw_id, v_job_id, v_changed;
 end;
