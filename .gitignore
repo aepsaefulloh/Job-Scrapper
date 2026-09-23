@@ -12,6 +12,7 @@ backend/.env.*
 !backend/.env.example
 candidate.md
 *.candidate.md
+docs/CV*.md
 
 # Local Supabase and agent workspaces
 .supabase/

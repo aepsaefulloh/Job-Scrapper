@@ -48,9 +48,11 @@ export function useProfile() {
       await fetchProfile();
       return res;
     } catch (e: any) {
-      uploadError.value = e?.message || 'Failed to upload and parse candidate markdown profile.';
+      const issues = Array.isArray(e?.issues) && e.issues.length > 0 ? ` (${e.issues.join('; ')})` : '';
+      uploadError.value = `${e?.message || 'Failed to upload and parse candidate markdown profile.'}${issues}`;
       throw e;
     } finally {
+
       uploading.value = false;
     }
   }

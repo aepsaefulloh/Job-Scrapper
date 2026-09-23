@@ -33,4 +33,20 @@ describe('parseCandidateMarkdown', () => {
 
     expect(parseCandidateMarkdown(`\uFEFF${crlfMarkdown}`).displayName).toBe('Ada Lovelace');
   });
+
+  it('parses natural converted markdown CV format', async () => {
+    const fixturePath = new URL('../../fixtures/candidate-natural.md', import.meta.url);
+    const naturalMarkdown = await readFile(fixturePath, 'utf8');
+
+    const result = parseCandidateMarkdown(naturalMarkdown);
+    expect(result.displayName).toBe('Siti Nurhaliza');
+    expect(result.headline).toContain('Staff Administrasi Manajemen');
+    expect(result.summary).toContain('Lulusan S1 Manajemen');
+    expect(result.experience).toContain('PT Nusantara Abadi');
+    expect(result.experience).toContain('Staff Administrasi Operasional');
+    expect(result.skills.length).toBeGreaterThan(8);
+    expect(result.skills.some((s) => s.displayName === 'Administrasi Perkantoran')).toBe(true);
+    expect(result.skills.some((s) => s.displayName === 'ChatGPT')).toBe(true);
+  });
 });
+

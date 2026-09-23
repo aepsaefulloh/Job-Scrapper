@@ -55,10 +55,20 @@ export class ApiClient {
       headers['Content-Type'] = 'application/json';
     }
 
-    const response = await fetch(url, {
-      ...options,
-      headers,
-    });
+    let response: Response;
+    try {
+      response = await fetch(url, {
+        ...options,
+        headers,
+      });
+    } catch (err: any) {
+      throw new ApiClientError(
+        'NETWORK_ERROR',
+        'Gagal mengirim permintaan ke server. Jika backend sudah aktif, pastikan berkas valid dan tidak terkunci oleh sistem/browser.',
+        0
+      );
+    }
+
 
     if (!response.ok) {
       let code = 'HTTP_ERROR';

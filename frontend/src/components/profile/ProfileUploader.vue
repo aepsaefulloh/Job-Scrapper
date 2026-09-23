@@ -12,6 +12,11 @@ const { uploading, uploadResult, uploadError, uploadMarkdownDocument } = useProf
 const isDragging = ref(false);
 const selectedFile = ref<File | null>(null);
 const localError = ref('');
+const fileInput = ref<HTMLInputElement | null>(null);
+
+function triggerFileInput() {
+  fileInput.value?.click();
+}
 
 function handleFileSelect(e: Event) {
   const target = e.target as HTMLInputElement;
@@ -27,10 +32,20 @@ function handleDrop(e: DragEvent) {
   }
 }
 
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  return `${(bytes / 1024).toFixed(1)} KB`;
+}
+
 function processFile(file: File) {
   localError.value = '';
+  uploadError.value = null;
   if (!file.name.toLowerCase().endsWith('.md')) {
-    localError.value = 'Please select a Markdown (.md) document.';
+    localError.value = 'Silakan pilih berkas dokumen Markdown (.md).';
+    return;
+  }
+  if (file.size === 0) {
+    localError.value = 'Berkas terdeteksi kosong (0 B). Hal ini terjadi jika berkas di-drag langsung dari sidebar VS Code/IDE karena izin keamanan browser. Silakan drag dari Windows File Explorer biasa atau gunakan "Click to browse".';
     return;
   }
   selectedFile.value = file;
@@ -41,13 +56,28 @@ async function handleUpload() {
   localError.value = '';
 
   try {
-    await uploadMarkdownDocument(selectedFile.value);
+    let text = '';
+    try {
+      text = await selectedFile.value.text();
+    } catch {
+      localError.value = 'Berkas tidak dapat dibaca oleh browser. Silakan gunakan tombol "Click to browse" dan pilih berkas langsung dari File Explorer.';
+      return;
+    }
+
+    if (!text.trim()) {
+      localError.value = 'Isi berkas Markdown kosong (0 B). Silakan pilih berkas yang memiliki teks profil.';
+      return;
+    }
+
+    const safeFile = new File([text], selectedFile.value.name, { type: 'text/markdown' });
+    await uploadMarkdownDocument(safeFile);
     selectedFile.value = null;
     emit('uploaded');
   } catch (err: any) {
     // uploadError in composable captures this
   }
 }
+
 </script>
 
 <template>
@@ -75,8 +105,9 @@ async function handleUpload() {
           ? 'border-brand-700 bg-brand-50/20'
           : 'border-surface-border hover:border-stone-400 bg-surface-muted/30',
       ]"
-      @click="($refs.fileInput as HTMLInputElement)?.click()"
+      @click="triggerFileInput"
     >
+
       <input
         ref="fileInput"
         type="file"
@@ -85,7 +116,7 @@ async function handleUpload() {
         @change="handleFileSelect"
       />
 
-      <div class="flex flex-col items-center justify-center space-y-2">
+      <div class="flex flex-col items-center justify-center space-y-2 pointer-events-none select-none">
         <div class="w-10 h-10 rounded-full bg-surface-muted flex items-center justify-center text-stone-500">
           <UploadCloud class="w-5 h-5 text-stone-600" />
         </div>
@@ -104,8 +135,9 @@ async function handleUpload() {
       <div class="flex items-center gap-2 truncate">
         <FileText class="w-4 h-4 text-emerald-700 flex-shrink-0" />
         <span class="font-semibold text-stone-800 truncate">{{ selectedFile.name }}</span>
-        <span class="text-[10px] text-stone-400">({{ Math.round(selectedFile.size / 1024) }} KB)</span>
+        <span class="text-[10px] text-stone-400">({{ formatFileSize(selectedFile.size) }})</span>
       </div>
+
 
       <button
         type="button"

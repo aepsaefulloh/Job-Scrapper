@@ -10,7 +10,7 @@ The candidate profile is the primary source of truth. Human-maintained Markdown 
 
 Implemented:
 
-- Markdown candidate profile parser and authenticated profile upload API.
+- Markdown candidate profile parser (with support for bilingual ID/EN natural converted CV formats) and authenticated profile upload API.
 - Supabase PostgreSQL schema for candidates, profiles, profile documents, skills, and scrape runs.
 - Private Supabase Storage bucket for profile documents.
 - Job ingestion foundation: `jobs_raw`, `jobs`, `job_skills`, and `scrape_runs`.
@@ -18,10 +18,11 @@ Implemented:
 - Authenticated repository, ingestion service, source-adapter contract, RLS, and applied remote migrations.
 - SumoPod AI provider adapter, pgvector embeddings, rule-based matching, and recommendation API.
 - Jobstreet scraper implementation with Camoufox browser session and scheduled ingestion.
-- Application tracking and application assistant workflows (backend services, repository, and AI material generation).
-- Monorepo restructure (`backend/` and `frontend/`) with unified `/api` prefix and `GET /api/profile` endpoint.
-- Vue 3 + Vite + Tailwind CSS dashboard ("JobToolkit") with editorial design, Supabase Auth, jobs discovery, application tracking, AI material generator, profile viewer, and responsive navigation.
+- Application tracking and application assistant workflows (backend services, repository, and AI material generation: cover letter, introduction, recruiter answer).
+- Monorepo restructure (`backend/` and `frontend/`) with unified `/api` prefix and Express production SPA serving (`/* -> frontend/dist`).
+- Vue 3 + Vite + Tailwind CSS dashboard ("JobToolkit") with editorial design, Supabase Auth, jobs discovery, application tracking (list/table view), AI material generator, profile viewer, and responsive navigation.
 - Unit tests, integration tests, strict TypeScript checking, and production build across both workspaces.
+
 
 Not yet implemented:
 

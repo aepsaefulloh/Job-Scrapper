@@ -1,3 +1,5 @@
+import fs from 'node:fs';
+import path from 'node:path';
 import 'dotenv/config';
 import { createApp } from './app.js';
 import { EmbeddingService } from './ai/embedding/embedding.service.js';
@@ -38,7 +40,11 @@ async function executeScrape(input: { candidateId: string; source: string; keywo
   const client = createUserSupabaseClient(accessToken, env); const embedding = createEmbeddingRunner(accessToken, input.candidateId); const orchestrator = new ScraperOrchestrator([new JobstreetScraper(new CamoufoxBrowserService(env.camoufoxExecutablePath))], new JobIngestionService(new SupabaseJobRepository(client)), embedding, logger);
   return new ScrapeRunService(new SupabaseScrapeRunRepository(client)).execute({ candidateId: input.candidateId, source: input.source, keyword: input.keyword, location: input.location }, () => orchestrator.run({ candidateId: input.candidateId, source: input.source, query: { keyword: input.keyword, location: input.location, remote: input.remote, maxPages: input.maxPages } }));
 }
+const defaultStaticDir = path.resolve(import.meta.dirname, '../../frontend/dist');
+const staticDir = process.env.STATIC_DIR || (fs.existsSync(defaultStaticDir) ? defaultStaticDir : undefined);
+
 const app = createApp({
+  staticDir,
   profileDocumentMaxBytes: env.profileDocumentMaxBytes, logger,
   authenticate: async (accessToken) => { const client = createUserSupabaseClient(accessToken, env); const { data, error } = await client.auth.getUser(); if (error || !data.user) throw new Error('Invalid access token.'); return { userId: data.user.id, accessToken }; },
   createProfileService: (accessToken) => { const client = createUserSupabaseClient(accessToken, env); return new ProfileService(new SupabaseProfileDocumentStorage(client), new SupabaseProfileRepository(client)); },

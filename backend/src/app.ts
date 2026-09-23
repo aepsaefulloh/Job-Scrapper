@@ -1,3 +1,4 @@
+import path from 'node:path';
 import express, { type ErrorRequestHandler, type Express, type RequestHandler } from 'express';
 import multer from 'multer';
 
@@ -35,6 +36,7 @@ export type AppDependencies = {
   createJobIngestionService?: (accessToken: string) => JobIngestionService;
   createJobEmbeddingService?: (accessToken: string, candidateId: string) => { embed(jobId: string): Promise<void> };
   createApplicationService?: (accessToken: string) => ApplicationService;
+  staticDir?: string;
   logger?: Logger;
 };
 
@@ -83,21 +85,32 @@ export function createApp(dependencies: AppDependencies): Express {
       res.status(202).json(await jobService.scrape({ candidateId: res.locals.auth.userId, source: source.trim(), ...(typeof keyword === 'string' ? { keyword } : {}), ...(typeof location === 'string' ? { location } : {}), ...(typeof remote === 'boolean' ? { remote } : {}) }, res.locals.auth.accessToken));
     } catch (error) { next(error); }
   });
-  router.post('/v1/profile/document', authenticate, upload.single('document'), async (req, res, next) => {
+  const uploadMiddleware = upload.fields([
+    { name: 'document', maxCount: 1 },
+    { name: 'file', maxCount: 1 },
+  ]);
+
+  const uploadHandler: RequestHandler = async (req, res, next) => {
     try {
-      if (!req.file) throw invalidUpload('A document file is required.');
-      if (!/\.md$/i.test(req.file.originalname)) throw invalidUpload('The document must use a .md filename.');
-      const contents = new TextDecoder('utf-8', { fatal: true }).decode(req.file.buffer);
+      const files = req.files as Record<string, Express.Multer.File[]> | undefined;
+      const file = req.file || files?.document?.[0] || files?.file?.[0];
+      if (!file) throw invalidUpload('A document file is required.');
+      if (!/\.md$/i.test(file.originalname)) throw invalidUpload('The document must use a .md filename.');
+      const contents = new TextDecoder('utf-8', { fatal: true }).decode(file.buffer);
       const result = await dependencies.createProfileService(res.locals.auth.accessToken).upload({
         candidateId: res.locals.auth.userId,
-        fileName: req.file.originalname,
+        fileName: file.originalname,
         contents
       });
       res.status(201).json(result);
     } catch (error) {
       next(error);
     }
-  });
+  };
+
+  router.post('/v1/profile/document', authenticate, uploadMiddleware, uploadHandler);
+  router.post('/profile', authenticate, uploadMiddleware, uploadHandler);
+
   if (dependencies.matchingService || dependencies.createMatchingService) {
     router.get('/matching/jobs/:candidateId', authenticate, async (req, res, next) => {
       try {
@@ -222,8 +235,24 @@ export function createApp(dependencies: AppDependencies): Express {
   }
 
   app.use('/api', router);
-  app.use(router);
-  app.use(errorHandler);
+
+  if (dependencies.staticDir) {
+    app.use(express.static(dependencies.staticDir));
+    app.use((req, res, next) => {
+      if (req.method !== 'GET' && req.method !== 'HEAD') {
+        return next();
+      }
+      if (req.path.startsWith('/api')) {
+        return next();
+      }
+      res.sendFile(path.resolve(dependencies.staticDir!, 'index.html'));
+    });
+  } else {
+    app.use(router);
+  }
+
+
+  app.use(createErrorHandler(dependencies.logger));
   return app;
 }
 
@@ -231,7 +260,14 @@ function invalidUpload(message: string): InvalidUploadError {
   return Object.assign(new Error(message), { code: 'INVALID_UPLOAD' as const });
 }
 
-const errorHandler: ErrorRequestHandler = (error, _req, res, _next) => {
+const createErrorHandler = (logger?: Logger): ErrorRequestHandler => (error, _req, res, _next) => {
+  if (logger && !(error instanceof MarkdownProfileValidationError) && !(error instanceof multer.MulterError)) {
+    logger.error({
+      event: 'api.error',
+      message: error instanceof Error ? error.message : String(error),
+      errorCode: (error as any)?.code,
+    });
+  }
   if (error instanceof MarkdownProfileValidationError) {
     return void res.status(422).json({ error: { code: 'INVALID_PROFILE_MARKDOWN', message: error.message }, issues: error.issues });
   }
@@ -254,5 +290,11 @@ const errorHandler: ErrorRequestHandler = (error, _req, res, _next) => {
     return void res.status(503).json({ error: { code: 'MATERIAL_GENERATION_FAILED', message: error.message } });
   }
   if (error instanceof MatchingError) return void res.status(503).json({ error: { code: error.code, message: error.message } });
-  res.status(502).json({ error: { code: 'PROFILE_STORAGE_FAILED', message: 'The candidate profile could not be saved.' } });
+  res.status(502).json({
+    error: {
+      code: 'PROFILE_STORAGE_FAILED',
+      message: error instanceof Error && error.message ? error.message : 'The candidate profile could not be saved.'
+    }
+  });
 };
+
