@@ -29,6 +29,8 @@ import { JobIngestionService } from './services/job-ingestion-service.js';
 import { JobService } from './services/job-service.js';
 import { DefaultMatchingService } from './services/matching-service.js';
 import { ProfileService } from './services/profile-service.js';
+import { SearchProfileService } from './search/search-profile.service.js';
+import { SupabaseSearchProfileRepository } from './search/search-profile.repository.js';
 
 const env = loadEnv(process.env); const logger = new StructuredLogger();
 function createEmbeddingRunner(accessToken: string, candidateId: string) {
@@ -56,6 +58,10 @@ const app = createApp({
     const matchingRepo = new SupabaseMatchingRepository(client);
     const assistant = new ApplicationAssistantService(new LlmService(provider), env.aiChatModel);
     return new ApplicationService(new SupabaseApplicationRepository(client), matchingRepo, assistant, logger);
+  },
+  createSearchProfileService: (accessToken) => {
+    const client = createUserSupabaseClient(accessToken, env);
+    return new SearchProfileService(new SupabaseSearchProfileRepository(client));
   },
 });
 const scheduler = new SchedulerService(new NodeCronDriver(), logger); const scheduledEnabled = env.jobScrapeEnabled || env.jobEmbeddingRecoveryEnabled;

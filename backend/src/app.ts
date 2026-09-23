@@ -36,6 +36,9 @@ export type AppDependencies = {
   createJobIngestionService?: (accessToken: string) => JobIngestionService;
   createJobEmbeddingService?: (accessToken: string, candidateId: string) => { embed(jobId: string): Promise<void> };
   createApplicationService?: (accessToken: string) => ApplicationService;
+  createSearchProfileService?: (accessToken: string) => {
+    get(candidateId: string): Promise<import('./search/search-types.js').CandidateSearchProfile | null>;
+  };
   staticDir?: string;
   logger?: Logger;
 };
@@ -70,6 +73,19 @@ export function createApp(dependencies: AppDependencies): Express {
       next(error);
     }
   });
+
+  if (dependencies.createSearchProfileService) {
+    router.get('/search-profile', authenticate, async (req, res, next) => {
+      try {
+        const svc = dependencies.createSearchProfileService!(res.locals.auth.accessToken);
+        const profile = await svc.get(res.locals.auth.userId);
+        if (!profile) return void res.status(404).json({ error: { code: 'SEARCH_PROFILE_NOT_FOUND', message: 'No search profile found. Upload a candidate profile to activate job discovery.' } });
+        res.json(profile);
+      } catch (error) {
+        next(error);
+      }
+    });
+  }
 
   if (dependencies.createJobService) {
     router.get('/jobs', authenticate, async (req, res, next) => { const started = Date.now(); try { const limit = req.query.limit === undefined ? 20 : Number(req.query.limit); const offset = req.query.offset === undefined ? 0 : Number(req.query.offset); if (!Number.isInteger(limit) || limit < 1 || limit > 100 || !Number.isInteger(offset) || offset < 0) return void res.status(400).json({ error: { code: 'INVALID_JOB_QUERY', message: 'Job pagination is invalid.' } }); const q = (key: string) => typeof req.query[key] === 'string' && req.query[key].trim() ? req.query[key].trim() : undefined; const result = await dependencies.createJobService!(res.locals.auth.accessToken).list(res.locals.auth.userId, { limit, offset, source: q('source'), company: q('company'), keyword: q('keyword') }); dependencies.logger?.info({ event: 'job.list.completed', candidateId: res.locals.auth.userId, limit, offset, resultCount: result.items.length, durationMs: Date.now() - started }); res.json({ items: (result.items as any[]).map((j) => ({ id: j.id, title: j.title, company: j.company_name, source: j.source, location: j.location, jobUrl: j.canonical_url, publishedAt: j.published_at, createdAt: j.created_at })), pagination: { limit, offset, total: result.total } }); } catch (e) { dependencies.logger?.error({ event: 'job.list.failed', durationMs: Date.now() - started }); next(e); } });
