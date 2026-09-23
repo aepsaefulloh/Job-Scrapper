@@ -31,6 +31,7 @@ import { DefaultMatchingService } from './services/matching-service.js';
 import { ProfileService } from './services/profile-service.js';
 import { SearchProfileService } from './search/search-profile.service.js';
 import { SupabaseSearchProfileRepository } from './search/search-profile.repository.js';
+import { SearchPlanner } from './search/search-planner.js';
 
 const env = loadEnv(process.env); const logger = new StructuredLogger();
 function createEmbeddingRunner(accessToken: string, candidateId: string) {
@@ -67,7 +68,37 @@ const app = createApp({
 const scheduler = new SchedulerService(new NodeCronDriver(), logger); const scheduledEnabled = env.jobScrapeEnabled || env.jobEmbeddingRecoveryEnabled;
 if (scheduledEnabled) {
   const candidateId = env.jobScrapeCandidateId!; const accessToken = env.jobScrapeAccessToken!; const client = createUserSupabaseClient(accessToken, env); const scrapeTask = new ScheduledScrapeTask(new SupabaseScrapeRunRepository(client), (id, search) => executeScrape({ candidateId: id, ...search }, accessToken), logger); const recovery = new EmbeddingRecoveryService(new SupabaseJobRepository(client), createEmbeddingRunner(accessToken, candidateId), logger);
-  scheduler.start({ enabled: true, cron: env.jobScrapeCron, timezone: env.jobScrapeTimezone, candidateId, searches: env.scheduledJobSearches }, async (id, searches) => { if (env.jobScrapeEnabled) for (const search of searches) { try { await scrapeTask.run(id, search); } catch {} } if (env.jobEmbeddingRecoveryEnabled) try { await recovery.recover(id, env.jobEmbeddingRecoveryLimit); } catch { logger.error({ event: 'embedding.recovery.failed', candidateId: id, errorCode: 'RECOVERY_BATCH_FAILED' }); } });
+  scheduler.start({ enabled: true, cron: env.jobScrapeCron, timezone: env.jobScrapeTimezone, candidateId, searches: env.scheduledJobSearches }, async (id, _searches) => {
+    if (env.jobScrapeEnabled) {
+      try {
+        const tickClient = createUserSupabaseClient(accessToken, env);
+        const searchSvc = new SearchProfileService(new SupabaseSearchProfileRepository(tickClient));
+        const profileRepo = new SupabaseProfileRepository(tickClient);
+        const planner = new SearchPlanner();
+
+        let searchProfile = await searchSvc.get(id);
+        if (!searchProfile) {
+          const candidateProfile = await profileRepo.getActiveProfile(id);
+          if (candidateProfile) {
+            searchProfile = await searchSvc.getOrDerive(id, candidateProfile);
+          }
+        }
+
+        const searches = searchProfile
+          ? planner.createIntents(searchProfile, { defaultMaxPages: 5 })
+          : env.scheduledJobSearches;
+
+        for (const search of searches) {
+          try { await scrapeTask.run(id, search); } catch {}
+        }
+      } catch {
+        logger.error({ event: 'scheduler.plan.failed', candidateId: id, errorCode: 'SEARCH_PLAN_FAILED' });
+      }
+    }
+    if (env.jobEmbeddingRecoveryEnabled) {
+      try { await recovery.recover(id, env.jobEmbeddingRecoveryLimit); } catch { logger.error({ event: 'embedding.recovery.failed', candidateId: id, errorCode: 'RECOVERY_BATCH_FAILED' }); }
+    }
+  });
 } else scheduler.start({ enabled: false, cron: env.jobScrapeCron, timezone: env.jobScrapeTimezone, candidateId: '', searches: [] }, async () => undefined);
 const server = app.listen(env.port, () => logger.info({ event: 'server.started', port: env.port }));
 function shutdown(): void { scheduler.stop(); server.close(); }

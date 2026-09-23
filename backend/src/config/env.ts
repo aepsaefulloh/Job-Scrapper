@@ -62,8 +62,8 @@ export function loadEnv(input: NodeJS.ProcessEnv): AppEnv {
   if ((result.data.JOB_SCRAPE_ENABLED || result.data.JOB_EMBEDDING_RECOVERY_ENABLED) && (!result.data.JOB_SCRAPE_CANDIDATE_ID || !result.data.JOB_SCRAPE_ACCESS_TOKEN)) {
     throw new Error('Invalid environment configuration: JOB_SCRAPE_CANDIDATE_ID and JOB_SCRAPE_ACCESS_TOKEN are required for scheduled operations.');
   }
-  if (result.data.JOB_SCRAPE_ENABLED && (!result.data.CAMOUFOX_EXECUTABLE_PATH || result.data.JOB_SCRAPE_SEARCHES_JSON.length === 0)) {
-    throw new Error('Invalid environment configuration: CAMOUFOX_EXECUTABLE_PATH and at least one JOB_SCRAPE_SEARCHES_JSON entry are required when JOB_SCRAPE_ENABLED=true.');
+  if (result.data.JOB_SCRAPE_ENABLED && !result.data.CAMOUFOX_EXECUTABLE_PATH) {
+    throw new Error('Invalid environment configuration: CAMOUFOX_EXECUTABLE_PATH is required when JOB_SCRAPE_ENABLED=true.');
   }
 
   return {
