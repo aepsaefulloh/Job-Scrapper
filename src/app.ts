@@ -7,6 +7,14 @@ import type { MatchingService } from './services/matching-service.js';
 import { MatchingError } from './matching/types.js';
 import type { JobService } from './services/job-service.js';
 import type { JobIngestionService } from './services/job-ingestion-service.js';
+import type { ApplicationService } from './services/application-service.js';
+import {
+  ApplicationConflictError,
+  ApplicationMaterialGenerationError,
+  ApplicationNotFoundError,
+  ApplicationValidationError,
+} from './domain/application/application-errors.js';
+import { APPLICATION_STATUSES, type ApplicationStatus } from './domain/application/application-types.js';
 import type { Logger } from './logging/logger.interface.js';
 
 type ProfileUploadService = {
@@ -25,6 +33,7 @@ export type AppDependencies = {
   createJobService?: (accessToken: string) => JobService;
   createJobIngestionService?: (accessToken: string) => JobIngestionService;
   createJobEmbeddingService?: (accessToken: string, candidateId: string) => { embed(jobId: string): Promise<void> };
+  createApplicationService?: (accessToken: string) => ApplicationService;
   logger?: Logger;
 };
 
@@ -89,6 +98,114 @@ export function createApp(dependencies: AppDependencies): Express {
       } catch (error) { next(error); }
     });
   }
+
+  if (dependencies.createApplicationService) {
+    app.get('/applications', authenticate, async (req, res, next) => {
+      try {
+        const limit = req.query.limit === undefined ? 20 : Number(req.query.limit);
+        const offset = req.query.offset === undefined ? 0 : Number(req.query.offset);
+        const status = typeof req.query.status === 'string' && req.query.status.trim() ? (req.query.status.trim() as ApplicationStatus) : undefined;
+        if (!Number.isInteger(limit) || limit < 1 || limit > 100 || !Number.isInteger(offset) || offset < 0) {
+          return void res.status(400).json({ error: { code: 'INVALID_APPLICATION_QUERY', message: 'Application pagination is invalid.' } });
+        }
+        if (status && !APPLICATION_STATUSES.includes(status)) {
+          return void res.status(400).json({ error: { code: 'INVALID_APPLICATION_QUERY', message: 'Application status filter is invalid.' } });
+        }
+        const service = dependencies.createApplicationService!(res.locals.auth.accessToken);
+        const result = await service.list(res.locals.auth.userId, { limit, offset, status });
+        res.json({
+          items: result.items,
+          pagination: { limit, offset, total: result.total },
+        });
+      } catch (error) { next(error); }
+    });
+
+    app.post('/applications', authenticate, async (req, res, next) => {
+      try {
+        const body = req.body as Record<string, unknown>;
+        if (!body || typeof body.jobId !== 'string' || !body.jobId.trim()) {
+          return void res.status(400).json({ error: { code: 'INVALID_APPLICATION_REQUEST', message: 'Job ID is required.' } });
+        }
+        if (body.status !== undefined && (!APPLICATION_STATUSES.includes(body.status as ApplicationStatus))) {
+          return void res.status(400).json({ error: { code: 'INVALID_APPLICATION_REQUEST', message: 'Invalid application status.' } });
+        }
+        const service = dependencies.createApplicationService!(res.locals.auth.accessToken);
+        const application = await service.create(res.locals.auth.userId, {
+          jobId: body.jobId.trim(),
+          status: body.status as ApplicationStatus | undefined,
+          notes: typeof body.notes === 'string' ? body.notes : undefined,
+          appliedAt: typeof body.appliedAt === 'string' ? body.appliedAt : undefined,
+        });
+        res.status(201).json(application);
+      } catch (error) { next(error); }
+    });
+
+    app.get('/applications/:id', authenticate, async (req, res, next) => {
+      try {
+        const service = dependencies.createApplicationService!(res.locals.auth.accessToken);
+        const application = await service.detail(res.locals.auth.userId, String(req.params.id));
+        if (!application) {
+          return void res.status(404).json({ error: { code: 'APPLICATION_NOT_FOUND', message: 'Application was not found.' } });
+        }
+        res.json(application);
+      } catch (error) { next(error); }
+    });
+
+    app.patch('/applications/:id', authenticate, async (req, res, next) => {
+      try {
+        const body = req.body as Record<string, unknown>;
+        const keys = Object.keys(body ?? {});
+        if (keys.length === 0 || keys.some((k) => !['status', 'notes', 'appliedAt'].includes(k))) {
+          return void res.status(400).json({ error: { code: 'INVALID_APPLICATION_UPDATE', message: 'Application update fields are invalid.' } });
+        }
+        if (body.status !== undefined && !APPLICATION_STATUSES.includes(body.status as ApplicationStatus)) {
+          return void res.status(400).json({ error: { code: 'INVALID_APPLICATION_UPDATE', message: 'Invalid application status.' } });
+        }
+        const service = dependencies.createApplicationService!(res.locals.auth.accessToken);
+        const updated = await service.update(res.locals.auth.userId, String(req.params.id), {
+          status: body.status as ApplicationStatus | undefined,
+          notes: typeof body.notes === 'string' ? body.notes : undefined,
+          appliedAt: typeof body.appliedAt === 'string' || body.appliedAt === null ? body.appliedAt : undefined,
+        });
+        if (!updated) {
+          return void res.status(404).json({ error: { code: 'APPLICATION_NOT_FOUND', message: 'Application was not found.' } });
+        }
+        res.json(updated);
+      } catch (error) { next(error); }
+    });
+
+    app.post('/applications/:id/generate-cover-letter', authenticate, async (req, res, next) => {
+      try {
+        const service = dependencies.createApplicationService!(res.locals.auth.accessToken);
+        const material = await service.generateCoverLetter(res.locals.auth.userId, String(req.params.id), req.body);
+        res.status(201).json(material);
+      } catch (error) { next(error); }
+    });
+
+    app.post('/applications/:id/generate-introduction', authenticate, async (req, res, next) => {
+      try {
+        const service = dependencies.createApplicationService!(res.locals.auth.accessToken);
+        const material = await service.generateIntroduction(res.locals.auth.userId, String(req.params.id), req.body);
+        res.status(201).json(material);
+      } catch (error) { next(error); }
+    });
+
+    app.post('/applications/:id/generate-answer', authenticate, async (req, res, next) => {
+      try {
+        const body = req.body as Record<string, unknown>;
+        if (!body || typeof body.question !== 'string' || !body.question.trim()) {
+          return void res.status(400).json({ error: { code: 'INVALID_APPLICATION_REQUEST', message: 'Recruiter question is required.' } });
+        }
+        const service = dependencies.createApplicationService!(res.locals.auth.accessToken);
+        const material = await service.generateRecruiterAnswer(res.locals.auth.userId, String(req.params.id), {
+          question: body.question.trim(),
+          context: typeof body.context === 'string' ? body.context : undefined,
+        });
+        res.status(201).json(material);
+      } catch (error) { next(error); }
+    });
+  }
+
   app.use(errorHandler);
   return app;
 }
@@ -106,6 +223,18 @@ const errorHandler: ErrorRequestHandler = (error, _req, res, _next) => {
   }
   if ((error as Partial<InvalidUploadError>).code === 'INVALID_UPLOAD') {
     return void res.status(400).json({ error: { code: 'INVALID_UPLOAD', message: error.message } });
+  }
+  if (error instanceof ApplicationNotFoundError) {
+    return void res.status(404).json({ error: { code: 'APPLICATION_NOT_FOUND', message: error.message } });
+  }
+  if (error instanceof ApplicationConflictError) {
+    return void res.status(409).json({ error: { code: 'APPLICATION_CONFLICT', message: error.message } });
+  }
+  if (error instanceof ApplicationValidationError) {
+    return void res.status(400).json({ error: { code: 'INVALID_APPLICATION_REQUEST', message: error.message } });
+  }
+  if (error instanceof ApplicationMaterialGenerationError) {
+    return void res.status(503).json({ error: { code: 'MATERIAL_GENERATION_FAILED', message: error.message } });
   }
   if (error instanceof MatchingError) return void res.status(503).json({ error: { code: error.code, message: error.message } });
   res.status(502).json({ error: { code: 'PROFILE_STORAGE_FAILED', message: 'The candidate profile could not be saved.' } });
