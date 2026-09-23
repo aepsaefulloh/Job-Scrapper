@@ -18,12 +18,14 @@ Implemented:
 - Authenticated repository, ingestion service, source-adapter contract, RLS, and applied remote migrations.
 - SumoPod AI provider adapter, pgvector embeddings, rule-based matching, and recommendation API.
 - Jobstreet scraper implementation with Camoufox browser session and scheduled ingestion.
-- Unit tests, migration contract tests, strict TypeScript checking, and production build.
+- Application tracking and application assistant workflows (backend services, repository, and AI material generation).
+- Monorepo restructure (`backend/` and `frontend/`) with unified `/api` prefix and `GET /api/profile` endpoint.
+- Vue 3 + Vite + Tailwind CSS dashboard ("JobToolkit") with editorial design, Supabase Auth, jobs discovery, application tracking, AI material generator, profile viewer, and responsive navigation.
+- Unit tests, integration tests, strict TypeScript checking, and production build across both workspaces.
 
 Not yet implemented:
 
 - LinkedIn or Glints scraper implementations.
-- Application tracking and application assistant workflows.
 - Runtime cross-user RLS tests with two authenticated test users.
 
 ## Architecture Rules
