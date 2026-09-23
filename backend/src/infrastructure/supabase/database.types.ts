@@ -113,6 +113,53 @@ export type Database = {
           },
         ]
       }
+      candidate_job_search_preferences: {
+        Row: {
+          candidate_id: string
+          created_at: string
+          employment_types: Json
+          id: string
+          locations: Json
+          max_posting_age_days: number
+          sources: Json
+          unknown_posting_date_policy: string
+          updated_at: string
+          work_modes: Json
+        }
+        Insert: {
+          candidate_id: string
+          created_at?: string
+          employment_types?: Json
+          id?: string
+          locations?: Json
+          max_posting_age_days?: number
+          sources?: Json
+          unknown_posting_date_policy?: string
+          updated_at?: string
+          work_modes?: Json
+        }
+        Update: {
+          candidate_id?: string
+          created_at?: string
+          employment_types?: Json
+          id?: string
+          locations?: Json
+          max_posting_age_days?: number
+          sources?: Json
+          unknown_posting_date_policy?: string
+          updated_at?: string
+          work_modes?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "candidate_job_search_preferences_candidate_id_fkey"
+            columns: ["candidate_id"]
+            isOneToOne: true
+            referencedRelation: "candidates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       candidate_search_profiles: {
         Row: {
           candidate_id: string

@@ -18,6 +18,11 @@ export class JobstreetScraper implements JobScraper {
           if (query.keyword) url.searchParams.set('keyword', query.keyword);
           if (query.location) url.searchParams.set('location', query.location);
           if (query.page !== undefined || pageCount > 1) url.searchParams.set('page', String(page));
+          if (query.maxPostingAgeDays) {
+            const days = query.maxPostingAgeDays;
+            const createdAt = days <= 1 ? '1d' : days <= 3 ? '3d' : days <= 7 ? '7d' : days <= 14 ? '14d' : '30d';
+            url.searchParams.set('createdAt', createdAt);
+          }
           await session.goto(url.toString());
           const summaries = parseJobstreetSearchPage(await session.getContent(), this.baseUrl);
           for (const summary of summaries) {

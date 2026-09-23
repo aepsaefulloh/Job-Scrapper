@@ -27,14 +27,16 @@ const companyInitial = computed(() => {
 });
 
 const formattedTime = computed(() => {
-  if (!props.job.publishedAt && !props.job.createdAt) return 'Recent';
-  const date = new Date(props.job.publishedAt || props.job.createdAt);
+  if (!props.job.publishedAt) return null;
+  const date = new Date(props.job.publishedAt);
+  if (isNaN(date.getTime())) return null;
   const now = new Date();
   const diffDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 3600 * 24));
-  if (diffDays === 0) return 'Today';
-  if (diffDays === 1) return '1 day ago';
-  if (diffDays < 7) return `${diffDays} days ago`;
-  return `${Math.floor(diffDays / 7)}w ago`;
+  if (diffDays <= 0) return 'Posted today';
+  if (diffDays === 1) return 'Posted 1d ago';
+  if (diffDays < 7) return `Posted ${diffDays}d ago`;
+  if (diffDays < 30) return `Posted ${Math.floor(diffDays / 7)}w ago`;
+  return `Posted ${date.toLocaleDateString([], { month: 'short', day: 'numeric' })}`;
 });
 </script>
 
@@ -88,7 +90,7 @@ const formattedTime = computed(() => {
     <!-- Right: Time, Save button, Match score -->
     <div class="flex items-center sm:flex-col sm:items-end justify-between sm:justify-center gap-3 flex-shrink-0 border-t sm:border-t-0 pt-2 sm:pt-0 border-surface-border/50">
       <div class="flex items-center gap-2">
-        <span class="text-[11px] text-stone-400 font-medium">{{ formattedTime }}</span>
+        <span class="text-[11px] text-stone-400 font-medium">{{ formattedTime ?? 'Date unknown' }}</span>
         <button
           type="button"
           @click.stop="emit('save', job)"

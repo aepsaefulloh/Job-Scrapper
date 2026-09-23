@@ -45,6 +45,11 @@ export interface ScrapeRunRepository {
       errorMessage?: string;
     }
   ): Promise<void>;
+  hasActiveRun?(
+    candidateId: string,
+    search: { source: string; keyword: string; location?: string },
+    identity: string
+  ): Promise<boolean>;
   hasAnyActiveRun?(candidateId: string): Promise<boolean>;
   list?(candidateId: string, limit?: number): Promise<ScrapeRunRecord[]>;
   getLatest?(candidateId: string): Promise<ScrapeRunRecord | null>;

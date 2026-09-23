@@ -4,7 +4,8 @@ import type { CandidateSearchProfile } from './search-types.js';
 
 const PRIMARY_SKILL_LIMIT = 10;
 const SECONDARY_SKILL_LIMIT = 10;
-const DEFAULT_SOURCES = ['jobstreet'] as const;
+const DEFAULT_SOURCES = ['jobstreet', 'loker-id'] as const;
+
 
 /**
  * Attempt to extract a meaningful role name from the candidate headline.
@@ -67,6 +68,11 @@ export class SearchProfileService {
       existing.sourceProfileId === profile.id &&
       existing.sourceProfileUpdatedAt === profile.updatedAt
     ) {
+      // Upgrade deprecated 'glints' source to 'loker-id' if present
+      if (existing.sources.includes('glints')) {
+        existing.sources = existing.sources.map((s) => (s === 'glints' ? 'loker-id' : s));
+        await this.repository.save(existing);
+      }
       return existing;
     }
 
@@ -78,7 +84,8 @@ export class SearchProfileService {
       if (existing.excludedRoles.length > 0) derived.excludedRoles = existing.excludedRoles;
       if (existing.excludedKeywords.length > 0) derived.excludedKeywords = existing.excludedKeywords;
       if (existing.excludedCompanies.length > 0) derived.excludedCompanies = existing.excludedCompanies;
-      if (existing.sources.length > 0) derived.sources = existing.sources;
+      const validSources = existing.sources.filter((s) => DEFAULT_SOURCES.includes(s as any));
+      derived.sources = Array.from(new Set([...validSources, ...DEFAULT_SOURCES]));
     }
 
     await this.repository.save(derived);

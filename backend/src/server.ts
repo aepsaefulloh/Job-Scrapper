@@ -19,6 +19,7 @@ import { NodeCronDriver } from './scheduler/node-cron.driver.js';
 import { SchedulerService } from './scheduler/scheduler.service.js';
 import { ScheduledScrapeTask } from './scheduler/scheduled-scrape-task.js';
 import { JobstreetScraper } from './scraping/providers/jobstreet/jobstreet.scraper.js';
+import { LokerIdScraper } from './scraping/providers/loker-id/loker-id.scraper.js';
 import { ApplicationAssistantService } from './ai/assistant/application-assistant.service.js';
 import { SupabaseApplicationRepository } from './infrastructure/supabase/application-repository.js';
 import { ApplicationService } from './services/application-service.js';
@@ -31,6 +32,8 @@ import { DefaultMatchingService } from './services/matching-service.js';
 import { ProfileService } from './services/profile-service.js';
 import { SearchProfileService } from './search/search-profile.service.js';
 import { SupabaseSearchProfileRepository } from './search/search-profile.repository.js';
+import { SearchPreferencesService } from './search/search-preferences.service.js';
+import { SupabaseSearchPreferencesRepository } from './search/search-preferences.repository.js';
 import { SearchPlanner } from './search/search-planner.js';
 
 import { CandidateSearchService } from './search/candidate-search.service.js';
@@ -47,9 +50,14 @@ function createCandidateSearchService(accessToken: string, candidateId?: string)
   const profileRepo = new SupabaseProfileRepository(client);
   const searchPlanner = new SearchPlanner();
   const scrapeRunRepo = new SupabaseScrapeRunRepository(client);
+  const preferencesRepo = new SupabaseSearchPreferencesRepository(client);
+  const searchPreferencesService = new SearchPreferencesService(preferencesRepo);
   const embedding = createEmbeddingRunner(accessToken, candidateId ?? '');
   const orchestrator = new ScraperOrchestrator(
-    [new JobstreetScraper(new CamoufoxBrowserService(env.camoufoxExecutablePath))],
+    [
+      new JobstreetScraper(new CamoufoxBrowserService(env.camoufoxExecutablePath)),
+      new LokerIdScraper(new CamoufoxBrowserService(env.camoufoxExecutablePath)),
+    ],
     new JobIngestionService(new SupabaseJobRepository(client)),
     embedding,
     logger
@@ -60,12 +68,13 @@ function createCandidateSearchService(accessToken: string, candidateId?: string)
     searchPlanner,
     scrapeRunRepo,
     orchestrator,
-    logger
+    logger,
+    searchPreferencesService
   );
 }
 async function executeScrape(input: { candidateId: string; source: string; keyword?: string; location?: string; remote?: boolean; maxPages?: number }, accessToken: string) {
   if (!env.camoufoxExecutablePath) throw new Error('CAMOUFOX_EXECUTABLE_PATH is required for scraping.');
-  const client = createUserSupabaseClient(accessToken, env); const embedding = createEmbeddingRunner(accessToken, input.candidateId); const orchestrator = new ScraperOrchestrator([new JobstreetScraper(new CamoufoxBrowserService(env.camoufoxExecutablePath))], new JobIngestionService(new SupabaseJobRepository(client)), embedding, logger);
+  const client = createUserSupabaseClient(accessToken, env); const embedding = createEmbeddingRunner(accessToken, input.candidateId); const orchestrator = new ScraperOrchestrator([new JobstreetScraper(new CamoufoxBrowserService(env.camoufoxExecutablePath)), new LokerIdScraper(new CamoufoxBrowserService(env.camoufoxExecutablePath))], new JobIngestionService(new SupabaseJobRepository(client)), embedding, logger);
   return new ScrapeRunService(new SupabaseScrapeRunRepository(client)).execute({ candidateId: input.candidateId, source: input.source, keyword: input.keyword, location: input.location }, () => orchestrator.run({ candidateId: input.candidateId, source: input.source, query: { keyword: input.keyword, location: input.location, remote: input.remote, maxPages: input.maxPages } }));
 }
 const defaultStaticDir = path.resolve(import.meta.dirname, '../../frontend/dist');
@@ -88,6 +97,10 @@ const app = createApp({
   createSearchProfileService: (accessToken) => {
     const client = createUserSupabaseClient(accessToken, env);
     return new SearchProfileService(new SupabaseSearchProfileRepository(client));
+  },
+  createSearchPreferencesService: (accessToken) => {
+    const client = createUserSupabaseClient(accessToken, env);
+    return new SearchPreferencesService(new SupabaseSearchPreferencesRepository(client));
   },
   createCandidateSearchService: (accessToken) => createCandidateSearchService(accessToken),
   createScrapeRunService: (accessToken) => {

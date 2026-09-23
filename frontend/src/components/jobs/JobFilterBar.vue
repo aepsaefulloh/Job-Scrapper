@@ -63,6 +63,7 @@ function handleReset() {
         >
           <option value="">All Sources</option>
           <option value="jobstreet">Jobstreet</option>
+          <option value="loker-id">Loker.id</option>
           <option value="manual">Manual</option>
         </select>
       </div>

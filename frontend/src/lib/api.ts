@@ -112,6 +112,18 @@ export class ApiClient {
     });
   }
 
+  public async put<T>(
+    path: string,
+    body?: unknown,
+    options?: RequestInit
+  ): Promise<T> {
+    return this.request<T>(path, {
+      ...options,
+      method: 'PUT',
+      body: body instanceof FormData ? body : JSON.stringify(body),
+    });
+  }
+
   public async patch<T>(
     path: string,
     body?: unknown,

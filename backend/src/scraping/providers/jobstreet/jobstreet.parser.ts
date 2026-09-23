@@ -1,4 +1,5 @@
 import type { ScrapedJob } from '../../scraper.interface.js';
+import { parseRelativeDate } from '../../../domain/job/relative-date-parser.js';
 
 const text = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
 const field = (html: string, name: string) => new RegExp(`<[^>]*data-automation=["']${name}["'][^>]*>([\\s\\S]*?)<\\/[^>]+>`, 'i').exec(html)?.[1];
@@ -39,6 +40,11 @@ export function parseJobstreetSearchPage(html: string, baseUrl: string, scrapedA
     const company = field(card, 'jobCompany');
     const location = field(card, 'jobLocation');
     const listingDate = field(card, 'jobListingDate');
+    const listingDateText = listingDate ? text(listingDate) : undefined;
+    const publishedAt = listingDateText
+      ? parseRelativeDate(listingDateText, new Date(scrapedAt))
+      : undefined;
+
     return [{
       source: 'jobstreet',
       ...(externalId ? { externalId } : {}),
@@ -47,7 +53,8 @@ export function parseJobstreetSearchPage(html: string, baseUrl: string, scrapedA
       ...(location ? { location: text(location) } : {}),
       jobUrl: href,
       scrapedAt,
-      metadata: { ...(listingDate ? { listingDate: text(listingDate) } : {}) }
+      ...(publishedAt ? { publishedAt } : {}),
+      metadata: { ...(listingDateText ? { listingDate: listingDateText } : {}) }
     }];
   });
 }

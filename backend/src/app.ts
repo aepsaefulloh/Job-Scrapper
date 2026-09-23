@@ -47,6 +47,10 @@ export type AppDependencies = {
     get(candidateId: string): Promise<import('./search/search-types.js').CandidateSearchProfile | null>;
     getOrDerive?(candidateId: string, profile: CandidateProfileDetail): Promise<import('./search/search-types.js').CandidateSearchProfile>;
   };
+  createSearchPreferencesService?: (accessToken: string) => {
+    getPreferences(candidateId: string): Promise<import('./search/preferences-types.js').JobSearchPreferences>;
+    updatePreferences(candidateId: string, input: Partial<import('./search/preferences-types.js').JobSearchPreferences>): Promise<import('./search/preferences-types.js').JobSearchPreferences>;
+  };
   createCandidateSearchService?: (accessToken: string) => CandidateSearchService;
   createScrapeRunService?: (accessToken: string) => ScrapeRunService;
   staticDir?: string;
@@ -96,6 +100,34 @@ export function createApp(dependencies: AppDependencies): Express {
         if (!profile) return void res.status(404).json({ error: { code: 'SEARCH_PROFILE_NOT_FOUND', message: 'No search profile found. Upload a candidate profile to activate job discovery.' } });
         res.json(profile);
       } catch (error) {
+        next(error);
+      }
+    });
+  }
+
+  if (dependencies.createSearchPreferencesService) {
+    router.get('/search-preferences', authenticate, async (req, res, next) => {
+      try {
+        const service = dependencies.createSearchPreferencesService!(res.locals.auth.accessToken);
+        const preferences = await service.getPreferences(res.locals.auth.userId);
+        res.json(preferences);
+      } catch (error) {
+        next(error);
+      }
+    });
+
+    router.put('/search-preferences', authenticate, async (req, res, next) => {
+      try {
+        const service = dependencies.createSearchPreferencesService!(res.locals.auth.accessToken);
+        const updated = await service.updatePreferences(res.locals.auth.userId, req.body ?? {});
+        res.json(updated);
+      } catch (error) {
+        if (
+          error instanceof Error &&
+          (error.message.includes('Unsupported') || error.message.includes('must be'))
+        ) {
+          return void res.status(400).json({ error: { code: 'INVALID_PREFERENCES', message: error.message } });
+        }
         next(error);
       }
     });

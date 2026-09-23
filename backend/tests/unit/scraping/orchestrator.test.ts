@@ -10,4 +10,43 @@ describe('ScraperOrchestrator', () => {
     expect(ingest).toHaveBeenCalledWith(expect.objectContaining({ source: 'jobstreet', payload: expect.objectContaining({ title: 'Engineer', company: 'Acme' }) }), 'candidate');
     expect(embed).toHaveBeenCalledWith('job');
   });
+
+  it('filters out stale jobs before embedding when freshness is specified and tracks expiredByAge', async () => {
+    const ingest = vi.fn().mockResolvedValue({ rawId: 'raw', jobId: 'job', changed: true, created: true });
+    const embed = vi.fn().mockResolvedValue(undefined);
+    const tenDaysAgo = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString();
+    const orchestrator = new ScraperOrchestrator(
+      [
+        {
+          source: 'jobstreet',
+          search: async () => [
+            {
+              source: 'jobstreet',
+              title: 'Old Engineer',
+              company: 'Acme',
+              description: 'TypeScript',
+              jobUrl: 'https://example.com/jobs/1',
+              publishedAt: tenDaysAgo,
+              scrapedAt: new Date().toISOString(),
+            },
+          ],
+        },
+      ],
+      { ingest },
+      { embed }
+    );
+
+    const summary = await orchestrator.run({
+      candidateId: 'candidate',
+      source: 'jobstreet',
+      query: { keyword: 'engineer' },
+      freshness: { maxPostingAgeDays: 7, unknownPostingDatePolicy: 'exclude' },
+    });
+
+    expect(summary.discovered).toBe(1);
+    expect(summary.inserted).toBe(1);
+    expect(summary.expiredByAge).toBe(1);
+    // Embedding should NOT have been called for stale job
+    expect(embed).not.toHaveBeenCalled();
+  });
 });

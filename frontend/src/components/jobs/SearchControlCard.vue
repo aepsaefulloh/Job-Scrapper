@@ -14,9 +14,13 @@ import {
   Loader2,
   ChevronDown,
   ChevronUp,
+  SlidersHorizontal,
 } from 'lucide-vue-next';
 import { useSearchProfile } from '../../composables/useSearchProfile';
 import { useScrapeRuns } from '../../composables/useScrapeRuns';
+import { useSearchPreferences } from '../../composables/useSearchPreferences';
+import SearchPreferencesModal from './SearchPreferencesModal.vue';
+import type { JobSearchPreferences } from '../../types/search-preferences';
 import SkillTag from '../common/SkillTag.vue';
 
 const emit = defineEmits<{
@@ -24,6 +28,13 @@ const emit = defineEmits<{
 }>();
 
 const { searchProfile, loading: profileLoading, fetchSearchProfile } = useSearchProfile();
+const {
+  preferences,
+  loading: prefsLoading,
+  saving: prefsSaving,
+  fetchPreferences,
+  updatePreferences,
+} = useSearchPreferences();
 const {
   latestRun,
   recentRuns,
@@ -40,16 +51,65 @@ const {
 } = useScrapeRuns();
 
 const showHistory = ref(false);
+const showPreferencesModal = ref(false);
 
 const hasUsableProfile = computed(() => {
   return !!searchProfile.value && searchProfile.value.targetRoles.length > 0;
 });
 
+function formatSourceName(src: string): string {
+  if (src.toLowerCase() === 'loker-id' || src.toLowerCase() === 'loker.id') return 'Loker.id';
+  return src.charAt(0).toUpperCase() + src.slice(1);
+}
+
 const activeSources = computed(() => {
-  // Only show supported sources (jobstreet)
-  if (!searchProfile.value) return ['Jobstreet'];
-  const supported = searchProfile.value.sources.filter((s) => s.toLowerCase() === 'jobstreet');
-  return supported.length > 0 ? supported.map((s) => s.charAt(0).toUpperCase() + s.slice(1)) : ['Jobstreet'];
+  // Source selection belongs to search preferences; profile sources act as fallback
+  const candidateSources =
+    preferences.value.sources && preferences.value.sources.length > 0
+      ? preferences.value.sources
+      : searchProfile.value?.sources || ['jobstreet', 'loker-id'];
+
+  const supported = candidateSources.filter((s) =>
+    ['jobstreet', 'loker-id'].includes(s.toLowerCase())
+  );
+  return supported.length > 0
+    ? supported.map(formatSourceName)
+    : ['Jobstreet', 'Loker.id'];
+});
+
+const latestRunsBySource = computed(() => {
+  const map = new Map<string, NonNullable<typeof latestRun.value>>();
+  for (const run of recentRuns.value) {
+    const src = run.source.toLowerCase();
+    if (!map.has(src)) {
+      map.set(src, run);
+    }
+  }
+  return activeSources.value.map((srcName) => {
+    const srcKey = (srcName.toLowerCase() === 'loker.id' || srcName.toLowerCase() === 'loker-id')
+      ? 'loker-id'
+      : srcName.toLowerCase();
+    return {
+      source: srcName,
+      run: map.get(srcKey) || null,
+    };
+  });
+});
+
+const overallStatus = computed(() => {
+  if (isRunning.value) return 'running';
+  const runs = latestRunsBySource.value
+    .map((s) => s.run)
+    .filter((r): r is NonNullable<typeof latestRun.value> => r !== null);
+  if (runs.length === 0) return null;
+  const hasFailed = runs.some((r) => r.status === 'failed');
+  const hasCompleted = runs.some((r) => r.status === 'completed');
+  const hasPartial = runs.some((r) => r.status === 'partial');
+
+  if (hasFailed && hasCompleted) return 'partial';
+  if (hasFailed) return 'failed';
+  if (hasPartial) return 'partial';
+  return 'completed';
 });
 
 function formatDate(isoString: string): string {
@@ -77,9 +137,19 @@ async function handleSearch() {
   }
 }
 
+async function handleSavePreferences(updated: JobSearchPreferences) {
+  try {
+    await updatePreferences(updated);
+    showPreferencesModal.value = false;
+  } catch {
+    // handled by composable error ref
+  }
+}
+
 onMounted(async () => {
   await Promise.all([
     fetchSearchProfile(),
+    fetchPreferences(),
     fetchLatestRun(),
     fetchRecentRuns(5),
   ]);
@@ -111,11 +181,25 @@ onMounted(async () => {
             Searching
           </span>
           <span
-            v-else-if="latestRun?.status === 'completed'"
+            v-else-if="overallStatus === 'completed'"
             class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200"
           >
             <CheckCircle2 class="w-2.5 h-2.5 text-emerald-600" />
             Ready
+          </span>
+          <span
+            v-else-if="overallStatus === 'partial'"
+            class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-800 border border-amber-200"
+          >
+            <AlertCircle class="w-2.5 h-2.5 text-amber-600" />
+            Partial Completion
+          </span>
+          <span
+            v-else-if="overallStatus === 'failed'"
+            class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-rose-50 text-rose-800 border border-rose-200"
+          >
+            <AlertCircle class="w-2.5 h-2.5 text-rose-600" />
+            Failed
           </span>
         </div>
         <p class="text-xs text-stone-500 mt-0.5">
@@ -155,6 +239,74 @@ onMounted(async () => {
       <span>
         Your job search profile is not ready yet. Complete or update your candidate profile first to activate discovery.
       </span>
+    </div>
+
+    <!-- Search Preferences Summary Bar -->
+    <div class="bg-stone-50/70 rounded-xl border border-surface-border p-3.5 space-y-2.5">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-1.5">
+          <SlidersHorizontal class="w-3.5 h-3.5 text-brand-700" />
+          <h3 class="text-xs font-bold text-stone-900">Search Preferences</h3>
+        </div>
+        <button
+          type="button"
+          @click="showPreferencesModal = true"
+          class="inline-flex items-center gap-1 text-[11px] font-semibold text-brand-700 hover:text-brand-800 bg-white border border-brand-200 hover:border-brand-300 px-2.5 py-1 rounded-lg transition-colors shadow-2xs"
+        >
+          <span>Edit Preferences</span>
+        </button>
+      </div>
+
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+        <div>
+          <span class="text-[10px] uppercase font-bold text-stone-400 block tracking-wider">Sources</span>
+          <div class="flex flex-wrap gap-1 mt-1">
+            <span
+              v-for="s in activeSources"
+              :key="s"
+              class="px-1.5 py-0.5 rounded bg-brand-50 border border-brand-200 text-[11px] font-medium text-brand-800"
+            >
+              {{ s }}
+            </span>
+          </div>
+        </div>
+
+        <div>
+          <span class="text-[10px] uppercase font-bold text-stone-400 block tracking-wider">Locations</span>
+          <div class="flex flex-wrap gap-1 mt-1 text-[11px] text-stone-800 font-medium">
+            <span
+              v-if="!preferences.locations || preferences.locations.length === 0"
+              class="text-stone-500 italic"
+            >
+              All locations
+            </span>
+            <span
+              v-else
+              v-for="loc in preferences.locations"
+              :key="loc"
+              class="px-1.5 py-0.5 rounded bg-white border border-stone-200 text-stone-700"
+            >
+              {{ loc }}
+            </span>
+          </div>
+        </div>
+
+        <div>
+          <span class="text-[10px] uppercase font-bold text-stone-400 block tracking-wider">Posted Within</span>
+          <div class="mt-1">
+            <span class="inline-flex items-center px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-[11px] font-semibold text-emerald-800">
+              Last {{ preferences.maxPostingAgeDays }} days
+            </span>
+          </div>
+        </div>
+
+        <div>
+          <span class="text-[10px] uppercase font-bold text-stone-400 block tracking-wider">Work Mode</span>
+          <div class="mt-1 text-[11px] text-stone-800 font-medium capitalize">
+            {{ preferences.workModes.length ? preferences.workModes.join(', ') : 'Any work mode' }}
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- Main Content: Transparency & Operational Summary Grid -->
@@ -253,7 +405,7 @@ onMounted(async () => {
           <div v-if="isRunning" class="py-2 space-y-1.5">
             <div class="flex items-center gap-2 text-stone-800 font-semibold text-xs">
               <Loader2 class="w-3.5 h-3.5 animate-spin text-brand-700" />
-              <span>Searching Jobstreet...</span>
+              <span>Searching {{ activeSources.join(' & ') }}...</span>
             </div>
             <p class="text-[11px] text-stone-500">
               Ingesting and evaluating candidate compatibility in real-time.
@@ -269,16 +421,49 @@ onMounted(async () => {
               <span
                 class="text-[10px] font-semibold uppercase px-2 py-0.5 rounded"
                 :class="{
-                  'bg-emerald-100 text-emerald-800': latestRun.status === 'completed',
-                  'bg-amber-100 text-amber-800': latestRun.status === 'partial',
-                  'bg-rose-100 text-rose-800': latestRun.status === 'failed',
+                  'bg-emerald-100 text-emerald-800': overallStatus === 'completed',
+                  'bg-amber-100 text-amber-800': overallStatus === 'partial',
+                  'bg-rose-100 text-rose-800': overallStatus === 'failed',
                 }"
               >
-                {{ latestRun.status }}
+                {{ overallStatus === 'partial' ? 'Partial Completion' : (overallStatus || latestRun.status) }}
               </span>
             </div>
 
-            <!-- Stats Grid -->
+            <!-- Multi-Source Summary Cards -->
+            <div class="grid grid-cols-2 gap-2 pt-1 border-t border-stone-200/60">
+              <div
+                v-for="item in latestRunsBySource"
+                :key="item.source"
+                class="p-2 rounded bg-white border border-stone-200/70"
+              >
+                <div class="flex items-center justify-between">
+                  <span class="font-bold text-stone-900 text-[11px]">{{ item.source }}</span>
+                  <span
+                    v-if="item.run"
+                    class="text-[9px] font-semibold uppercase px-1.5 py-0.5 rounded"
+                    :class="{
+                      'bg-emerald-100 text-emerald-800': item.run.status === 'completed',
+                      'bg-amber-100 text-amber-800': item.run.status === 'partial',
+                      'bg-rose-100 text-rose-800': item.run.status === 'failed',
+                      'bg-blue-100 text-blue-800': item.run.status === 'running' || item.run.status === 'pending',
+                    }"
+                  >
+                    {{ item.run.status }}
+                  </span>
+                  <span v-else class="text-[9px] text-stone-400">Idle</span>
+                </div>
+                <div v-if="item.run" class="mt-1 flex items-baseline justify-between text-[11px]">
+                  <span class="text-emerald-700 font-semibold">+{{ item.run.inserted }} new</span>
+                  <span class="text-stone-400 text-[10px]">({{ item.run.discovered }} found)</span>
+                </div>
+                <div v-else class="mt-1 text-stone-400 text-[10px]">
+                  No run recorded
+                </div>
+              </div>
+            </div>
+
+            <!-- Overall Stats Summary -->
             <div class="grid grid-cols-4 gap-2 pt-1 border-t border-stone-200/60 text-center">
               <div>
                 <span class="block text-stone-900 font-bold text-sm">{{ latestRun.discovered }}</span>
@@ -340,7 +525,7 @@ onMounted(async () => {
                 'bg-blue-500': run.status === 'running' || run.status === 'pending',
               }"
             />
-            <span class="font-medium text-stone-800 capitalize">{{ run.source }}</span>
+            <span class="font-medium text-stone-800">{{ formatSourceName(run.source) }}</span>
             <span v-if="run.keyword" class="text-stone-500 text-[11px]">"{{ run.keyword }}"</span>
           </div>
 
@@ -354,5 +539,13 @@ onMounted(async () => {
         </div>
       </div>
     </div>
+
+    <!-- Edit Preferences Modal -->
+    <SearchPreferencesModal
+      v-model="showPreferencesModal"
+      :preferences="preferences"
+      :saving="prefsSaving"
+      @save="handleSavePreferences"
+    />
   </div>
 </template>

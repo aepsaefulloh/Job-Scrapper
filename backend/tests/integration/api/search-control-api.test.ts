@@ -106,7 +106,7 @@ describe('Candidate Search Control & Scrape Run API', () => {
 
       expect(res.body.error).toEqual({
         code: 'SEARCH_ALREADY_RUNNING',
-        message: 'A search is already running for this profile.',
+        message: 'A search is already running for this query.',
       });
     });
   });

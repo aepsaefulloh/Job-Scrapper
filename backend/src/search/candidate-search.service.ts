@@ -1,10 +1,13 @@
 import type { Logger } from '../logging/logger.interface.js';
-import type { CandidateProfileDetail, ProfileRepository } from '../infrastructure/supabase/profile-repository.js';
-import type { ScrapeRunRecord, ScrapeRunRepository, ScrapeRunStatus } from '../scraping/scrape-run.service.js';
-import type { ScraperOrchestrator, ScrapeSummary } from '../scraping/scraper.orchestrator.js';
+import type { ProfileRepository } from '../infrastructure/supabase/profile-repository.js';
+import type { ScrapeRunRepository, ScrapeRunStatus } from '../scraping/scrape-run.service.js';
+import type { ScraperOrchestrator } from '../scraping/scraper.orchestrator.js';
 import type { JobSearchIntent } from './search-types.js';
 import type { SearchProfileService } from './search-profile.service.js';
 import type { SearchPlanner } from './search-planner.js';
+import type { SearchPreferencesService } from './search-preferences.service.js';
+import type { JobSearchPreferences } from './preferences-types.js';
+import { buildSearchIdentity, normalizeScheduledSearch } from '../scheduler/scheduled-scrape-task.js';
 
 export class SearchProfileNotReadyError extends Error {
   public readonly code = 'SEARCH_PROFILE_NOT_READY';
@@ -16,7 +19,7 @@ export class SearchProfileNotReadyError extends Error {
 
 export class SearchAlreadyRunningError extends Error {
   public readonly code = 'SEARCH_ALREADY_RUNNING';
-  public constructor(message = 'A search is already running for this profile.') {
+  public constructor(message = 'A search is already running for this query.') {
     super(message);
     this.name = 'SearchAlreadyRunningError';
   }
@@ -25,10 +28,13 @@ export class SearchAlreadyRunningError extends Error {
 export interface CandidateSearchExecutionResponse {
   status: 'running';
   runIds: string[];
+  sources?: string[];
+  locations?: string[];
+  maxPostingAgeDays?: number;
 }
 
 export class CandidateSearchService {
-  private readonly supportedSources = new Set(['jobstreet']);
+  private readonly supportedSources = new Set(['jobstreet', 'loker-id']);
 
   public constructor(
     private readonly searchProfileService: SearchProfileService,
@@ -36,12 +42,13 @@ export class CandidateSearchService {
     private readonly searchPlanner: SearchPlanner,
     private readonly scrapeRunRepo: ScrapeRunRepository,
     private readonly orchestrator: ScraperOrchestrator,
-    private readonly logger?: Logger
+    private readonly logger?: Logger,
+    private readonly searchPreferencesService?: SearchPreferencesService
   ) {}
 
   /**
    * Run candidate-driven search manually triggered from the UI.
-   * Validates profile readiness and concurrency, registers runs,
+   * Validates profile readiness and per-search concurrency, registers runs,
    * kicks off scraping in the background, and returns immediately.
    */
   public async runManualSearch(
@@ -53,15 +60,15 @@ export class CandidateSearchService {
       throw new SearchProfileNotReadyError();
     }
 
-    const hasActive = await this.scrapeRunRepo.hasAnyActiveRun?.(candidateId);
-    if (hasActive) {
-      throw new SearchAlreadyRunningError();
-    }
-
     const searchProfile = await this.searchProfileService.getOrDerive(candidateId, candidateProfile);
-    const allIntents = this.searchPlanner.createIntents(searchProfile, {
-      defaultMaxPages: options.maxPages ?? 1,
-    });
+    const preferences = await this.searchPreferencesService?.getPreferences(candidateId);
+
+    const allIntents = this.searchPlanner.createIntents(
+      { searchProfile, preferences },
+      {
+        defaultMaxPages: options.maxPages ?? 1,
+      }
+    );
 
     const validIntents = allIntents.filter((intent) => this.supportedSources.has(intent.source));
     if (validIntents.length === 0) {
@@ -69,7 +76,37 @@ export class CandidateSearchService {
     }
 
     const maxIntents = options.maxIntents ?? 3;
-    const intentsToRun = validIntents.slice(0, maxIntents);
+    const candidateIntents = validIntents.slice(0, maxIntents);
+
+    const intentsToRun: JobSearchIntent[] = [];
+    for (const intent of candidateIntents) {
+      const normalized = normalizeScheduledSearch({
+        source: intent.source,
+        keyword: intent.keyword,
+        location: intent.location,
+      });
+      const identity = buildSearchIdentity(normalized);
+      const isActive = this.scrapeRunRepo.hasActiveRun
+        ? await this.scrapeRunRepo.hasActiveRun(candidateId, normalized, identity)
+        : await this.scrapeRunRepo.hasAnyActiveRun?.(candidateId);
+
+      if (isActive) {
+        this.logger?.info({
+          event: 'search.manual.skipped',
+          candidateId,
+          source: intent.source,
+          keyword: intent.keyword,
+          location: intent.location,
+          reason: 'ACTIVE_RUN',
+        });
+        continue;
+      }
+      intentsToRun.push(intent);
+    }
+
+    if (intentsToRun.length === 0) {
+      throw new SearchAlreadyRunningError();
+    }
 
     const startedRuns: { runId: string; intent: JobSearchIntent }[] = [];
     for (const intent of intentsToRun) {
@@ -88,14 +125,20 @@ export class CandidateSearchService {
       candidateId,
       runCount: startedRuns.length,
       runIds: startedRuns.map((r) => r.runId),
+      sources: preferences?.sources,
+      locations: preferences?.locations,
+      maxPostingAgeDays: preferences?.maxPostingAgeDays,
     });
 
     // Execute in background
-    void this.executeRuns(candidateId, startedRuns);
+    void this.executeRuns(candidateId, startedRuns, preferences);
 
     return {
       status: 'running',
       runIds: startedRuns.map((r) => r.runId),
+      sources: preferences?.sources,
+      locations: preferences?.locations,
+      maxPostingAgeDays: preferences?.maxPostingAgeDays,
     };
   }
 
@@ -107,8 +150,10 @@ export class CandidateSearchService {
     fallbackSearches: JobSearchIntent[] = []
   ): Promise<void> {
     let searches: JobSearchIntent[] | null = null;
+    let preferences: JobSearchPreferences | undefined;
 
     try {
+      preferences = await this.searchPreferencesService?.getPreferences(candidateId);
       const candidateProfile = await this.profileRepo.getActiveProfile(candidateId);
       if (!candidateProfile) {
         this.logger?.info({
@@ -120,7 +165,10 @@ export class CandidateSearchService {
         searches = fallbackSearches;
       } else {
         const searchProfile = await this.searchProfileService.getOrDerive(candidateId, candidateProfile);
-        searches = this.searchPlanner.createIntents(searchProfile, { defaultMaxPages: 2 });
+        searches = this.searchPlanner.createIntents(
+          { searchProfile, preferences },
+          { defaultMaxPages: 2 }
+        );
         this.logger?.info({
           event: 'scheduler.candidate_plan.selected',
           candidateId,
@@ -143,13 +191,24 @@ export class CandidateSearchService {
     for (const search of searches) {
       if (!this.supportedSources.has(search.source)) continue;
 
-      const hasActive = await this.scrapeRunRepo.hasAnyActiveRun?.(candidateId);
+      const normalized = normalizeScheduledSearch({
+        source: search.source,
+        keyword: search.keyword,
+        location: search.location,
+      });
+      const identity = buildSearchIdentity(normalized);
+      const hasActive = this.scrapeRunRepo.hasActiveRun
+        ? await this.scrapeRunRepo.hasActiveRun(candidateId, normalized, identity)
+        : await this.scrapeRunRepo.hasAnyActiveRun?.(candidateId);
+
       if (hasActive) {
         this.logger?.info({
-          event: 'scheduler.run_skipped',
+          event: 'scheduler.run.skipped',
           candidateId,
           source: search.source,
           keyword: search.keyword,
+          location: search.location,
+          reason: 'ACTIVE_RUN',
         });
         continue;
       }
@@ -162,23 +221,25 @@ export class CandidateSearchService {
         metadata: { trigger: 'scheduled' },
       });
 
-      await this.executeSingleRun(candidateId, run.id, search);
+      await this.executeSingleRun(candidateId, run.id, search, preferences);
     }
   }
 
   private async executeRuns(
     candidateId: string,
-    runs: { runId: string; intent: JobSearchIntent }[]
+    runs: { runId: string; intent: JobSearchIntent }[],
+    preferences?: JobSearchPreferences
   ): Promise<void> {
     for (const { runId, intent } of runs) {
-      await this.executeSingleRun(candidateId, runId, intent);
+      await this.executeSingleRun(candidateId, runId, intent, preferences);
     }
   }
 
   private async executeSingleRun(
     candidateId: string,
     runId: string,
-    intent: JobSearchIntent
+    intent: JobSearchIntent,
+    preferences?: JobSearchPreferences
   ): Promise<void> {
     try {
       const summary = await this.orchestrator.run({
@@ -188,7 +249,14 @@ export class CandidateSearchService {
           keyword: intent.keyword,
           location: intent.location,
           maxPages: intent.maxPages ?? 1,
+          maxPostingAgeDays: preferences?.maxPostingAgeDays,
         },
+        freshness: preferences
+          ? {
+              maxPostingAgeDays: preferences.maxPostingAgeDays,
+              unknownPostingDatePolicy: preferences.unknownPostingDatePolicy,
+            }
+          : undefined,
       });
 
       const status: ScrapeRunStatus = summary.failed ? 'partial' : 'completed';
