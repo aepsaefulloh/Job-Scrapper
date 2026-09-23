@@ -36,4 +36,8 @@ export class ProfileService {
       throw error;
     }
   }
+
+  public async getProfile(candidateId: string) {
+    return this.repository.getActiveProfile(candidateId);
+  }
 }
