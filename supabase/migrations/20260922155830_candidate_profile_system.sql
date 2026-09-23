@@ -190,6 +190,7 @@ returns table (
 language plpgsql
 set search_path = ''
 as $$
+#variable_conflict use_column
 declare
   v_candidate_id uuid := auth.uid();
   v_document_id uuid;
@@ -235,7 +236,7 @@ begin
     p_byte_size,
     p_parser_version
   )
-  returning id, uploaded_at into v_document_id, v_uploaded_at;
+  returning profile_documents.id, profile_documents.uploaded_at into v_document_id, v_uploaded_at;
 
   insert into public.profiles (
     candidate_id,
@@ -255,7 +256,7 @@ begin
     p_experience,
     p_career_preferences
   )
-  returning id into v_profile_id;
+  returning profiles.id into v_profile_id;
 
   insert into public.profile_skills (
     profile_id,
