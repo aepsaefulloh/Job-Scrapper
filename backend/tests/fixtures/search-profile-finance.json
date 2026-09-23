@@ -1,0 +1,18 @@
+{
+  "candidateId": "cand-finance-001",
+  "targetRoles": ["Accountant"],
+  "roleAliases": [],
+  "primarySkills": ["Microsoft Excel", "Laporan Keuangan", "Rekonsiliasi"],
+  "secondarySkills": ["SAP", "Oracle"],
+  "industries": ["Finance", "Banking"],
+  "seniority": ["mid"],
+  "preferredLocations": ["Jakarta"],
+  "workModes": ["onsite"],
+  "employmentTypes": ["full-time"],
+  "excludedRoles": ["internship"],
+  "excludedKeywords": [],
+  "excludedCompanies": [],
+  "languages": ["Indonesian"],
+  "sources": ["jobstreet"],
+  "generatedAt": "2026-09-23T00:00:00.000Z"
+}

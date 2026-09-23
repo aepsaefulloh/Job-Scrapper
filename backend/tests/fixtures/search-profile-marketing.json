@@ -1,0 +1,18 @@
+{
+  "candidateId": "cand-mkt-001",
+  "targetRoles": ["Digital Marketing", "Content Writer"],
+  "roleAliases": [],
+  "primarySkills": ["SEO", "Google Ads", "Content Strategy"],
+  "secondarySkills": ["Canva", "Google Analytics"],
+  "industries": [],
+  "seniority": ["junior", "mid"],
+  "preferredLocations": ["Bandung", "Jakarta"],
+  "workModes": ["remote", "hybrid"],
+  "employmentTypes": ["full-time", "part-time"],
+  "excludedRoles": [],
+  "excludedKeywords": [],
+  "excludedCompanies": [],
+  "languages": ["Indonesian"],
+  "sources": ["jobstreet"],
+  "generatedAt": "2026-09-23T00:00:00.000Z"
+}

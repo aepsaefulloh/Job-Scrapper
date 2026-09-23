@@ -1,0 +1,18 @@
+{
+  "candidateId": "cand-tech-001",
+  "targetRoles": ["Frontend Developer"],
+  "roleAliases": [],
+  "primarySkills": ["Vue.js", "TypeScript", "React"],
+  "secondarySkills": ["CSS", "REST API"],
+  "industries": [],
+  "seniority": ["junior", "mid"],
+  "preferredLocations": ["Jakarta", "Remote"],
+  "workModes": ["remote", "hybrid"],
+  "employmentTypes": ["full-time"],
+  "excludedRoles": ["internship"],
+  "excludedKeywords": [],
+  "excludedCompanies": [],
+  "languages": ["Indonesian", "English"],
+  "sources": ["jobstreet"],
+  "generatedAt": "2026-09-23T00:00:00.000Z"
+}
