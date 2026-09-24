@@ -136,6 +136,10 @@ export class ApiClient {
     });
   }
 
+  public async delete<T>(path: string, options?: RequestInit): Promise<T> {
+    return this.request<T>(path, { ...options, method: 'DELETE' });
+  }
+
   public async postFormData<T>(
     path: string,
     formData: FormData,
@@ -149,4 +153,12 @@ export class ApiClient {
   }
 }
 
+export interface CleanupResult {
+  deletedJobsCount: number;
+  deletedRawCount: number;
+  deletedScrapeRunsCount: number;
+  preservedJobsCount: number;
+}
+
 export const apiClient = new ApiClient();
+

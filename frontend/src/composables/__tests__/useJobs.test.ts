@@ -5,68 +5,51 @@ import { apiClient } from '../../lib/api';
 vi.mock('../../lib/api', () => ({
   apiClient: {
     get: vi.fn(),
+    post: vi.fn(),
     patch: vi.fn(),
+    delete: vi.fn(),
   },
 }));
 
-describe('useJobs', () => {
+describe('useJobs delete and cleanup', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it('fetches jobs list with pagination parameters', async () => {
-    const mockJobsResponse = {
-      items: [
-        {
-          id: 'job-1',
-          title: 'Senior Frontend Engineer',
-          company: 'Tokopedia',
-          source: 'jobstreet',
-          location: 'Jakarta, Indonesia',
-          jobUrl: 'https://example.com/job/1',
-          publishedAt: '2026-09-23T00:00:00.000Z',
-          createdAt: '2026-09-23T00:00:00.000Z',
-        },
-      ],
-      pagination: { limit: 20, offset: 0, total: 1 },
-    };
+  it('removes job optimistically on deleteJob', async () => {
+    vi.mocked(apiClient.delete).mockResolvedValueOnce({ success: true, jobId: 'job-1' });
+    const { jobs, total, deleteJob } = useJobs();
+    jobs.value = [
+      { id: 'job-1', title: 'Developer' } as any,
+      { id: 'job-2', title: 'Designer' } as any,
+    ];
+    total.value = 2;
 
-    (apiClient.get as any).mockResolvedValue(mockJobsResponse);
-
-    const { jobs, total, loading, fetchJobs } = useJobs();
-    await fetchJobs({ keyword: 'Frontend', limit: 20, offset: 0 });
-
-    expect(loading.value).toBe(false);
-    expect(total.value).toBe(1);
+    const ok = await deleteJob('job-1');
+    expect(ok).toBe(true);
     expect(jobs.value).toHaveLength(1);
-    expect(jobs.value[0].title).toBe('Senior Frontend Engineer');
-    expect(apiClient.get).toHaveBeenCalledWith(
-      expect.stringContaining('/jobs?limit=20&offset=0&keyword=Frontend')
-    );
+    expect(jobs.value[0].id).toBe('job-2');
+    expect(total.value).toBe(1);
+    expect(apiClient.delete).toHaveBeenCalledWith('/jobs/job-1');
   });
 
-  it('fetches job detail by id', async () => {
-    const mockDetail = {
-      id: 'job-1',
-      title: 'Senior Frontend Engineer',
-      company: 'Tokopedia',
-      source: 'jobstreet',
-      location: 'Jakarta, Indonesia',
-      jobUrl: 'https://example.com/job/1',
-      description: 'Exciting job description here',
-      employmentType: 'Full-time',
-      workplaceType: 'On-site',
-      publishedAt: '2026-09-23T00:00:00.000Z',
-      status: 'active',
-      skills: [{ displayName: 'Vue.js', canonicalName: 'vuejs' }],
-    };
+  it('calls cleanupJobs and refreshes list', async () => {
+    vi.mocked(apiClient.post).mockResolvedValueOnce({
+      deletedJobsCount: 5,
+      deletedRawCount: 5,
+      deletedScrapeRunsCount: 1,
+      preservedJobsCount: 1,
+    });
+    vi.mocked(apiClient.get).mockResolvedValueOnce({
+      items: [],
+      pagination: { limit: 20, offset: 0, total: 0 },
+    });
 
-    (apiClient.get as any).mockResolvedValue(mockDetail);
+    const { cleanupJobs } = useJobs();
+    const result = await cleanupJobs();
 
-    const { activeJob, fetchJobDetail } = useJobs();
-    await fetchJobDetail('job-1');
-
-    expect(activeJob.value).toEqual(mockDetail);
-    expect(apiClient.get).toHaveBeenCalledWith('/jobs/job-1');
+    expect(result.deletedJobsCount).toBe(5);
+    expect(apiClient.post).toHaveBeenCalledWith('/jobs/cleanup');
+    expect(apiClient.get).toHaveBeenCalled();
   });
 });

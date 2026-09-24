@@ -75,6 +75,33 @@ export function useJobs() {
     }
   }
 
+  async function deleteJob(id: string): Promise<boolean> {
+    try {
+      await apiClient.delete<{ success: boolean; jobId: string }>(`/jobs/${id}`);
+      jobs.value = jobs.value.filter((j) => j.id !== id);
+      total.value = Math.max(0, total.value - 1);
+      return true;
+    } catch (e: any) {
+      error.value = e?.message || 'Failed to delete job.';
+      return false;
+    }
+  }
+
+  async function cleanupJobs() {
+    loading.value = true;
+    error.value = null;
+    try {
+      const res = await apiClient.post<import('../lib/api').CleanupResult>('/jobs/cleanup');
+      await fetchJobs();
+      return res;
+    } catch (e: any) {
+      error.value = e?.message || 'Failed to cleanup jobs.';
+      throw e;
+    } finally {
+      loading.value = false;
+    }
+  }
+
   return {
     jobs,
     total,
@@ -86,5 +113,7 @@ export function useJobs() {
     fetchJobs,
     fetchJobDetail,
     updateJobStatus,
+    deleteJob,
+    cleanupJobs,
   };
 }
