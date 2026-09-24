@@ -1,6 +1,6 @@
 import { ref } from 'vue';
 import { apiClient } from '../lib/api';
-import type { CandidateProfile, ProfileUploadResponse } from '../types/profile';
+import type { CandidateProfile, ProfileUploadResponse, UpdateProfilePayload } from '../types/profile';
 
 const profile = ref<CandidateProfile | null>(null);
 const loading = ref<boolean>(false);
@@ -9,6 +9,9 @@ const error = ref<string | null>(null);
 const uploading = ref<boolean>(false);
 const uploadResult = ref<ProfileUploadResponse | null>(null);
 const uploadError = ref<string | null>(null);
+
+const saving = ref<boolean>(false);
+const saveError = ref<string | null>(null);
 
 export function useProfile() {
   async function fetchProfile() {
@@ -52,8 +55,23 @@ export function useProfile() {
       uploadError.value = `${e?.message || 'Failed to upload and parse candidate markdown profile.'}${issues}`;
       throw e;
     } finally {
-
       uploading.value = false;
+    }
+  }
+
+  async function updateProfile(payload: UpdateProfilePayload): Promise<CandidateProfile> {
+    saving.value = true;
+    saveError.value = null;
+
+    try {
+      const res = await apiClient.put<CandidateProfile>('/profile', payload);
+      profile.value = res;
+      return res;
+    } catch (e: any) {
+      saveError.value = e?.message || 'Failed to update candidate profile.';
+      throw e;
+    } finally {
+      saving.value = false;
     }
   }
 
@@ -64,7 +82,10 @@ export function useProfile() {
     uploading,
     uploadResult,
     uploadError,
+    saving,
+    saveError,
     fetchProfile,
     uploadMarkdownDocument,
+    updateProfile,
   };
 }

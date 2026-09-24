@@ -6,6 +6,7 @@ vi.mock('../../lib/api', () => ({
   apiClient: {
     get: vi.fn(),
     postFormData: vi.fn(),
+    put: vi.fn(),
   },
 }));
 
@@ -59,5 +60,42 @@ describe('useProfile', () => {
       '/v1/profile/document',
       expect.any(FormData)
     );
+  });
+
+  it('successfully updates profile via updateProfile', async () => {
+    const updatedMock = {
+      id: 'prof-1',
+      candidateId: 'cand-1',
+      displayName: 'Aep Saefulloh Updated',
+      headline: 'Lead Architect',
+      summary: 'Senior Engineer',
+      experience: '8+ years',
+      careerPreferences: 'Remote',
+      skills: [{ displayName: 'Vue.js', canonicalName: 'vue.js' }],
+      updatedAt: '2026-09-24T12:00:00Z',
+    };
+
+    (apiClient.put as any).mockResolvedValueOnce(updatedMock);
+
+    const { updateProfile, profile, saving, saveError } = useProfile();
+
+    const promise = (updateProfile as any)({
+      displayName: 'Aep Saefulloh Updated',
+      headline: 'Lead Architect',
+      skills: ['Vue.js'],
+    });
+
+    expect(saving.value).toBe(true);
+    const result = await promise;
+
+    expect(saving.value).toBe(false);
+    expect(saveError.value).toBeNull();
+    expect(result.displayName).toBe('Aep Saefulloh Updated');
+    expect(profile.value?.displayName).toBe('Aep Saefulloh Updated');
+    expect(apiClient.put).toHaveBeenCalledWith('/profile', {
+      displayName: 'Aep Saefulloh Updated',
+      headline: 'Lead Architect',
+      skills: ['Vue.js'],
+    });
   });
 });

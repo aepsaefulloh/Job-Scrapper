@@ -22,3 +22,12 @@ export type ProfileUploadResponse = {
   uploadedAt: string;
   skillCount: number;
 };
+
+export type UpdateProfilePayload = {
+  displayName: string;
+  headline?: string | null;
+  summary?: string | null;
+  experience?: string | null;
+  careerPreferences?: string | null;
+  skills?: string[];
+};
