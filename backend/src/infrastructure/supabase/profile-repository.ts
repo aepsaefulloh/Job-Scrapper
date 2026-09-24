@@ -32,9 +32,19 @@ export type CandidateProfileDetail = {
   updatedAt: string;
 };
 
+export type UpdateProfileInput = {
+  displayName: string;
+  headline?: string | null;
+  summary?: string | null;
+  experience?: string | null;
+  careerPreferences?: string | null;
+  skills?: Array<{ displayName: string; canonicalName: string }>;
+};
+
 export interface ProfileRepository {
   createRevision(input: CreateProfileRevisionInput): Promise<ProfileUploadResult>;
   getActiveProfile(candidateId: string): Promise<CandidateProfileDetail | null>;
+  updateActiveProfile(candidateId: string, input: UpdateProfileInput): Promise<CandidateProfileDetail>;
 }
 
 export class SupabaseProfileRepository implements ProfileRepository {
@@ -103,5 +113,66 @@ export class SupabaseProfileRepository implements ProfileRepository {
       })),
       updatedAt: profile.updated_at,
     };
+  }
+
+  public async updateActiveProfile(
+    candidateId: string,
+    input: UpdateProfileInput
+  ): Promise<CandidateProfileDetail> {
+    const { data: profile, error } = await this.client
+      .from('profiles')
+      .select('id')
+      .eq('candidate_id', candidateId)
+      .eq('is_active', true)
+      .is('deleted_at', null)
+      .maybeSingle();
+
+    if (error) throw new Error('Candidate profile could not be loaded.');
+    if (!profile) throw new Error('Active profile not found.');
+
+    const updatePayload: Record<string, unknown> = {
+      display_name: input.displayName,
+      updated_at: new Date().toISOString(),
+    };
+    if (input.headline !== undefined) updatePayload.headline = input.headline;
+    if (input.summary !== undefined) updatePayload.summary = input.summary;
+    if (input.experience !== undefined) updatePayload.experience = input.experience;
+    if (input.careerPreferences !== undefined) updatePayload.career_preferences = input.careerPreferences;
+
+    const { error: updateError } = await this.client
+      .from('profiles')
+      .update(updatePayload as never)
+      .eq('id', profile.id);
+
+    if (updateError) throw new Error('Failed to update candidate profile.');
+
+    if (input.skills !== undefined) {
+      const { error: delError } = await this.client
+        .from('profile_skills')
+        .delete()
+        .eq('profile_id', profile.id);
+
+      if (delError) throw new Error('Failed to update profile skills.');
+
+      if (input.skills.length > 0) {
+        const { error: insError } = await this.client
+          .from('profile_skills')
+          .insert(
+            input.skills.map((s) => ({
+              profile_id: profile.id,
+              display_name: s.displayName,
+              canonical_name: s.canonicalName,
+              category: null,
+              proficiency: null,
+            })) as never
+          );
+
+        if (insError) throw new Error('Failed to insert updated profile skills.');
+      }
+    }
+
+    const updated = await this.getActiveProfile(candidateId);
+    if (!updated) throw new Error('Failed to reload updated profile.');
+    return updated;
   }
 }
