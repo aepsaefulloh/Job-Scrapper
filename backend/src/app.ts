@@ -192,6 +192,32 @@ export function createApp(dependencies: AppDependencies): Express {
     router.get('/jobs', authenticate, async (req, res, next) => { const started = Date.now(); try { const limit = req.query.limit === undefined ? 20 : Number(req.query.limit); const offset = req.query.offset === undefined ? 0 : Number(req.query.offset); if (!Number.isInteger(limit) || limit < 1 || limit > 100 || !Number.isInteger(offset) || offset < 0) return void res.status(400).json({ error: { code: 'INVALID_JOB_QUERY', message: 'Job pagination is invalid.' } }); const q = (key: string) => typeof req.query[key] === 'string' && req.query[key].trim() ? req.query[key].trim() : undefined; const result = await dependencies.createJobService!(res.locals.auth.accessToken).list(res.locals.auth.userId, { limit, offset, source: q('source'), company: q('company'), keyword: q('keyword') }); dependencies.logger?.info({ event: 'job.list.completed', candidateId: res.locals.auth.userId, limit, offset, resultCount: result.items.length, durationMs: Date.now() - started }); res.json({ items: (result.items as any[]).map((j) => ({ id: j.id, title: j.title, company: j.company_name, source: j.source, location: j.location, jobUrl: j.canonical_url, publishedAt: j.published_at, createdAt: j.created_at })), pagination: { limit, offset, total: result.total } }); } catch (e) { dependencies.logger?.error({ event: 'job.list.failed', durationMs: Date.now() - started }); next(e); } });
     router.get('/jobs/:id', authenticate, async (req, res, next) => { try { const job = await dependencies.createJobService!(res.locals.auth.accessToken).detail(res.locals.auth.userId, String(req.params.id)); if (!job) return void res.status(404).json({ error: { code: 'JOB_NOT_FOUND', message: 'Job was not found.' } }); const j = job as any; dependencies.logger?.info({ event: 'job.detail.completed', candidateId: res.locals.auth.userId, jobId: j.id }); res.json({ id: j.id, title: j.title, company: j.company_name, source: j.source, location: j.location, jobUrl: j.canonical_url, description: j.description, employmentType: j.employment_type, workplaceType: j.workplace_type, publishedAt: j.published_at, status: j.status, skills: j.job_skills?.map((s: any) => ({ displayName: s.display_name, canonicalName: s.canonical_name })) ?? [] }); } catch (e) { dependencies.logger?.error({ event: 'job.detail.failed', jobId: String(req.params.id) }); next(e); } });
     router.patch('/jobs/:id', authenticate, async (req, res, next) => { try { const keys = Object.keys(req.body ?? {}); if (keys.length !== 1 || !['status'].includes(keys[0] ?? '') || !['active', 'expired', 'closed'].includes(req.body.status)) return void res.status(400).json({ error: { code: 'INVALID_JOB_UPDATE', message: 'Job update is invalid.' } }); const job = await dependencies.createJobService!(res.locals.auth.accessToken).update(res.locals.auth.userId, String(req.params.id), { status: req.body.status }); if (!job) return void res.status(404).json({ error: { code: 'JOB_NOT_FOUND', message: 'Job was not found.' } }); dependencies.logger?.info({ event: 'job.update.completed', candidateId: res.locals.auth.userId, jobId: String(req.params.id) }); res.json(job); } catch (e) { dependencies.logger?.error({ event: 'job.update.failed', jobId: String(req.params.id) }); next(e); } });
+    router.delete('/jobs/:id', authenticate, async (req, res, next) => {
+      try {
+        const jobId = String(req.params.id);
+        const service = dependencies.createJobService!(res.locals.auth.accessToken);
+        const deleted = await service.delete(res.locals.auth.userId, jobId);
+        if (!deleted) {
+          return void res.status(404).json({ error: { code: 'JOB_NOT_FOUND', message: 'Job was not found.' } });
+        }
+        dependencies.logger?.info({ event: 'job.delete.completed', candidateId: res.locals.auth.userId, jobId });
+        res.json({ success: true, jobId });
+      } catch (e) {
+        dependencies.logger?.error({ event: 'job.delete.failed', jobId: String(req.params.id) });
+        next(e);
+      }
+    });
+    router.post('/jobs/cleanup', authenticate, async (req, res, next) => {
+      try {
+        const service = dependencies.createJobService!(res.locals.auth.accessToken);
+        const result = await service.cleanup(res.locals.auth.userId);
+        dependencies.logger?.info({ event: 'job.cleanup.completed', candidateId: res.locals.auth.userId, result });
+        res.json(result);
+      } catch (e) {
+        dependencies.logger?.error({ event: 'job.cleanup.failed' });
+        next(e);
+      }
+    });
   }
   if (dependencies.createJobIngestionService) router.post('/jobs/ingest', authenticate, async (req, res, next) => { try { const body = req.body as any; if (!body || typeof body.source !== 'string' || typeof body.url !== 'string' || typeof body.fetchedAt !== 'string' || !body.payload || typeof body.payload !== 'object') return void res.status(400).json({ error: { code: 'INVALID_JOB_PAYLOAD', message: 'Job payload is invalid.' } }); const result = await dependencies.createJobIngestionService!(res.locals.auth.accessToken).ingest(body, res.locals.auth.userId); let embeddingStatus = 'skipped'; if (result.changed && dependencies.createJobEmbeddingService) try { await dependencies.createJobEmbeddingService(res.locals.auth.accessToken, res.locals.auth.userId).embed(result.jobId); embeddingStatus = 'completed'; } catch { embeddingStatus = 'failed'; } const event = embeddingStatus === 'failed' ? 'job.ingestion.partial' : 'job.ingestion.completed'; dependencies.logger?.info({ event, candidateId: res.locals.auth.userId, jobId: result.jobId, source: body.source, ...(embeddingStatus === 'failed' ? { stage: 'embedding', errorCode: 'EMBEDDING_FAILED' } : {}) }); res.status(201).json({ status: result.created ? 'inserted' : result.changed ? 'updated' : 'duplicate', jobId: result.jobId, embeddingStatus }); } catch (e) { dependencies.logger?.error({ event: 'job.ingestion.failed' }); next(e); } });
   const jobService = dependencies.jobService;
