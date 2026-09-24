@@ -44,7 +44,8 @@ function mapWorkMode(mode?: string): 'remote' | 'hybrid' | 'onsite' | undefined 
 
 function mapEmploymentType(types?: string[]): string | undefined {
   if (!types || types.length === 0) return undefined;
-  const first = types[0].toLowerCase();
+  const first = types[0]?.toLowerCase();
+  if (!first) return undefined;
   if (first.includes('full') || first === 'fulltime') return 'full-time';
   if (first.includes('part') || first === 'parttime') return 'part-time';
   if (first.includes('contract') || first === 'kontrak') return 'contract';
@@ -160,8 +161,8 @@ export function parseDeallsSearchPage(
     const slug = match[2];
     const innerHtml = match[3];
 
-    // Filter out top-level /loker root links
-    if (!slug || slug === 'loker' || slug.startsWith('?')) continue;
+    // Filter out top-level /loker root links and undefined matches
+    if (!rawPath || !slug || slug === 'loker' || slug.startsWith('?') || !innerHtml) continue;
 
     const jobUrl = new URL(rawPath, baseUrl).toString();
     if (seenUrls.has(jobUrl)) continue;

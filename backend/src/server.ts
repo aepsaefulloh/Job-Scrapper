@@ -20,6 +20,8 @@ import { SchedulerService } from './scheduler/scheduler.service.js';
 import { ScheduledScrapeTask } from './scheduler/scheduled-scrape-task.js';
 import { JobstreetScraper } from './scraping/providers/jobstreet/jobstreet.scraper.js';
 import { LokerIdScraper } from './scraping/providers/loker-id/loker-id.scraper.js';
+import { DeallsScraper } from './scraping/providers/dealls/dealls.scraper.js';
+import { GlintsScraper } from './scraping/providers/glints/glints.scraper.js';
 import { ApplicationAssistantService } from './ai/assistant/application-assistant.service.js';
 import { SupabaseApplicationRepository } from './infrastructure/supabase/application-repository.js';
 import { ApplicationService } from './services/application-service.js';
@@ -59,6 +61,8 @@ function createCandidateSearchService(accessToken: string, candidateId?: string)
     [
       new JobstreetScraper(new CamoufoxBrowserService(env.camoufoxExecutablePath)),
       new LokerIdScraper(new CamoufoxBrowserService(env.camoufoxExecutablePath)),
+      new DeallsScraper(new CamoufoxBrowserService(env.camoufoxExecutablePath), undefined, logger),
+      new GlintsScraper(new CamoufoxBrowserService(env.camoufoxExecutablePath), undefined, logger),
     ],
     new JobIngestionService(new SupabaseJobRepository(client)),
     embedding,
@@ -77,7 +81,18 @@ function createCandidateSearchService(accessToken: string, candidateId?: string)
 }
 async function executeScrape(input: { candidateId: string; source: string; keyword?: string; location?: string; remote?: boolean; maxPages?: number }, accessToken: string) {
   if (!env.camoufoxExecutablePath) throw new Error('CAMOUFOX_EXECUTABLE_PATH is required for scraping.');
-  const client = createUserSupabaseClient(accessToken, env); const embedding = createEmbeddingRunner(accessToken, input.candidateId); const orchestrator = new ScraperOrchestrator([new JobstreetScraper(new CamoufoxBrowserService(env.camoufoxExecutablePath)), new LokerIdScraper(new CamoufoxBrowserService(env.camoufoxExecutablePath))], new JobIngestionService(new SupabaseJobRepository(client)), embedding, logger);
+  const client = createUserSupabaseClient(accessToken, env); const embedding = createEmbeddingRunner(accessToken, input.candidateId);
+  const orchestrator = new ScraperOrchestrator(
+    [
+      new JobstreetScraper(new CamoufoxBrowserService(env.camoufoxExecutablePath)),
+      new LokerIdScraper(new CamoufoxBrowserService(env.camoufoxExecutablePath)),
+      new DeallsScraper(new CamoufoxBrowserService(env.camoufoxExecutablePath), undefined, logger),
+      new GlintsScraper(new CamoufoxBrowserService(env.camoufoxExecutablePath), undefined, logger),
+    ],
+    new JobIngestionService(new SupabaseJobRepository(client)),
+    embedding,
+    logger
+  );
   return new ScrapeRunService(new SupabaseScrapeRunRepository(client)).execute({ candidateId: input.candidateId, source: input.source, keyword: input.keyword, location: input.location }, () => orchestrator.run({ candidateId: input.candidateId, source: input.source, query: { keyword: input.keyword, location: input.location, remote: input.remote, maxPages: input.maxPages } }));
 }
 const defaultStaticDir = path.resolve(import.meta.dirname, '../../frontend/dist');
