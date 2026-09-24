@@ -57,6 +57,21 @@ export interface SearchExecutionRecord {
   sources?: SearchExecutionSource[];
 }
 
+export interface SearchExecutionPagination {
+  limit: number;
+  offset: number;
+  total: number;
+}
+
 export interface SearchExecutionsListResponse {
   items: SearchExecutionRecord[];
+  pagination: SearchExecutionPagination;
 }
+
+export interface SearchExecutionFilters {
+  status?: string;
+  source?: string;
+  trigger?: 'manual' | 'scheduled' | '';
+  dateRange?: 'all' | 'today' | '7d' | '30d';
+}
+
