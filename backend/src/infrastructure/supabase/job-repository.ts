@@ -127,14 +127,15 @@ export class SupabaseJobRepository implements JobRepository {
 
     let deletedJobsCount = 0;
     if (targetJobIds.length > 0) {
-      const { error: delJobsError } = await this.client
+      const { data: deletedJobs, error: delJobsError } = await this.client
         .from('jobs')
         .delete()
         .eq('candidate_id', candidateId)
-        .in('id', targetJobIds);
+        .in('id', targetJobIds)
+        .select('id');
 
       if (delJobsError) throw new JobPersistenceError('Failed to delete unsaved jobs.');
-      deletedJobsCount = targetJobIds.length;
+      deletedJobsCount = deletedJobs?.length ?? 0;
     }
 
     const { data: remainingJobs } = await this.client
@@ -153,13 +154,15 @@ export class SupabaseJobRepository implements JobRepository {
 
     let deletedRawCount = 0;
     if (rawToDelete.length > 0) {
-      const { error: delRawError } = await this.client
+      const { data: deletedRaw, error: delRawError } = await this.client
         .from('jobs_raw')
         .delete()
         .eq('candidate_id', candidateId)
-        .in('id', rawToDelete);
+        .in('id', rawToDelete)
+        .select('id');
 
-      if (!delRawError) deletedRawCount = rawToDelete.length;
+      if (delRawError) throw new JobPersistenceError('Failed to delete orphaned raw jobs.');
+      deletedRawCount = deletedRaw?.length ?? 0;
     }
 
     const { data: finishedRuns } = await this.client
@@ -171,13 +174,15 @@ export class SupabaseJobRepository implements JobRepository {
     let deletedScrapeRunsCount = 0;
     const runIdsToDelete = (finishedRuns ?? []).map((r: { id: string }) => r.id);
     if (runIdsToDelete.length > 0) {
-      const { error: delRunsError } = await this.client
+      const { data: deletedRuns, error: delRunsError } = await this.client
         .from('scrape_runs')
         .delete()
         .eq('candidate_id', candidateId)
-        .in('id', runIdsToDelete);
+        .in('id', runIdsToDelete)
+        .select('id');
 
-      if (!delRunsError) deletedScrapeRunsCount = runIdsToDelete.length;
+      if (delRunsError) throw new JobPersistenceError('Failed to delete completed scrape runs.');
+      deletedScrapeRunsCount = deletedRuns?.length ?? 0;
     }
 
     return {

@@ -81,11 +81,14 @@ describe('SupabaseJobRepository deletion and cleanup', () => {
       }),
     });
 
-    // 3. Delete unsaved jobs
+    // 3. RLS can accept a DELETE request while deleting zero rows. The result must
+    // report actual deleted rows rather than the number selected for deletion.
     fromMock.mockReturnValueOnce({
       delete: vi.fn().mockReturnValueOnce({
         eq: vi.fn().mockReturnValueOnce({
-          in: vi.fn().mockResolvedValueOnce({ error: null }),
+          in: vi.fn().mockReturnValueOnce({
+            select: vi.fn().mockResolvedValueOnce({ data: [], error: null }),
+          }),
         }),
       }),
     });
@@ -114,7 +117,9 @@ describe('SupabaseJobRepository deletion and cleanup', () => {
     fromMock.mockReturnValueOnce({
       delete: vi.fn().mockReturnValueOnce({
         eq: vi.fn().mockReturnValueOnce({
-          in: vi.fn().mockResolvedValueOnce({ error: null }),
+          in: vi.fn().mockReturnValueOnce({
+            select: vi.fn().mockResolvedValueOnce({ data: [], error: null }),
+          }),
         }),
       }),
     });
@@ -135,16 +140,18 @@ describe('SupabaseJobRepository deletion and cleanup', () => {
     fromMock.mockReturnValueOnce({
       delete: vi.fn().mockReturnValueOnce({
         eq: vi.fn().mockReturnValueOnce({
-          in: vi.fn().mockResolvedValueOnce({ error: null }),
+          in: vi.fn().mockReturnValueOnce({
+            select: vi.fn().mockResolvedValueOnce({ data: [], error: null }),
+          }),
         }),
       }),
     });
 
     const result = await repo.cleanupUnsavedJobs('cand-1');
     expect(result).toEqual({
-      deletedJobsCount: 1,
-      deletedRawCount: 1,
-      deletedScrapeRunsCount: 1,
+      deletedJobsCount: 0,
+      deletedRawCount: 0,
+      deletedScrapeRunsCount: 0,
       preservedJobsCount: 1,
     });
   });
