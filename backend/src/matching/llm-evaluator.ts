@@ -6,12 +6,16 @@ import type { RuleScore } from './scoring/types.js';
 
 export const AI_MATCH_PROMPT_VERSION = 'job-match-v2';
 
-const analysisSchema = z.object({
+export const conciseAiMatchSchema = z.object({
   score: z.number().int().min(0).max(100),
   recommendation: z.enum(['strong_match', 'potential_match', 'weak_match']),
   strengths: z.array(z.string().trim().min(1).max(160)).max(3),
   gaps: z.array(z.string().trim().min(1).max(160)).max(3),
   summary: z.string().trim().min(1).max(280),
+}).strict();
+
+export const readyAiMatchAnalysisSchema = conciseAiMatchSchema.extend({
+  status: z.literal('ready'),
 }).strict();
 
 export type AiMatchAnalysis =
@@ -56,7 +60,7 @@ export async function evaluateJobMatch(
           },
         ],
       },
-      analysisSchema
+      conciseAiMatchSchema
     );
     return { status: 'ready', ...analysis };
   } catch {

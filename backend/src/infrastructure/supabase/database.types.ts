@@ -14,6 +14,60 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_match_evaluations: {
+        Row: {
+          candidate_id: string
+          created_at: string
+          evaluation: Json
+          id: string
+          job_checksum: string
+          job_id: string
+          model: string
+          profile_checksum: string
+          prompt_version: string
+          updated_at: string
+        }
+        Insert: {
+          candidate_id: string
+          created_at?: string
+          evaluation: Json
+          id?: string
+          job_checksum: string
+          job_id: string
+          model: string
+          profile_checksum: string
+          prompt_version: string
+          updated_at?: string
+        }
+        Update: {
+          candidate_id?: string
+          created_at?: string
+          evaluation?: Json
+          id?: string
+          job_checksum?: string
+          job_id?: string
+          model?: string
+          profile_checksum?: string
+          prompt_version?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_match_evaluations_candidate_id_fkey"
+            columns: ["candidate_id"]
+            isOneToOne: false
+            referencedRelation: "candidates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_match_evaluations_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       application_materials: {
         Row: {
           application_id: string
@@ -740,6 +794,19 @@ export type Database = {
           uploaded_at: string
         }[]
       }
+      match_candidate_job_subset: {
+        Args: {
+          p_candidate_id: string
+          p_job_ids: string[]
+          p_match_count?: number
+          p_match_threshold?: number
+          p_query_embedding: string
+        }
+        Returns: {
+          job_id: string
+          similarity: number
+        }[]
+      }
       match_candidate_jobs: {
         Args: {
           p_candidate_id: string
@@ -910,3 +977,4 @@ export const Constants = {
     Enums: {},
   },
 } as const
+

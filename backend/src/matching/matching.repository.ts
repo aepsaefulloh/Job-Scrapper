@@ -9,6 +9,7 @@ import { buildJobEmbeddingText } from '../ai/embedding/job-embedding-text.js';
 export interface MatchingRepository {
   getProfileEmbedding(candidateId: string): Promise<number[] | null>;
   match(candidateId: string, embedding: number[], limit: number, threshold: number): Promise<Array<{ job_id: string; similarity: number }>>;
+  matchSubset(candidateId: string, embedding: number[], jobIds: string[], limit: number, threshold: number): Promise<Array<{ job_id: string; similarity: number }>>;
   getCandidateContext(candidateId: string): Promise<{ text: string; scoring: CandidateScoringInput }>;
   getJobContext(candidateId: string, jobId: string): Promise<{ text: string; scoring: JobScoringInput }>;
 }
@@ -45,6 +46,18 @@ export class SupabaseMatchingRepository implements MatchingRepository {
   public async match(candidateId: string, embedding: number[], limit: number, threshold: number): Promise<Array<{ job_id: string; similarity: number }>> {
     const { data, error } = await this.client.rpc('match_candidate_jobs', { p_candidate_id: candidateId, p_query_embedding: embedding as never, p_match_threshold: threshold, p_match_count: limit });
     if (error || !data) throw new MatchingError('VECTOR_SEARCH_FAILED', 'Vector search failed.', { cause: error });
+    return data;
+  }
+
+  public async matchSubset(candidateId: string, embedding: number[], jobIds: string[], limit: number, threshold: number): Promise<Array<{ job_id: string; similarity: number }>> {
+    const { data, error } = await this.client.rpc('match_candidate_job_subset', {
+      p_candidate_id: candidateId,
+      p_query_embedding: embedding,
+      p_job_ids: jobIds,
+      p_match_count: limit,
+      p_match_threshold: threshold,
+    } as never);
+    if (error || !data) throw new MatchingError('VECTOR_SEARCH_FAILED', 'Subset vector search failed.', { cause: error });
     return data;
   }
 }
