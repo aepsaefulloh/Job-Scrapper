@@ -119,4 +119,49 @@ describe('CandidateSearchService with SearchExecutionRepository', () => {
       })
     );
   });
+
+  it('supports all 4 sources (jobstreet, loker-id, dealls, glints) and tracks partial failure', async () => {
+    searchPlanner.createIntents = vi.fn().mockReturnValue([
+      { source: 'jobstreet', keyword: 'Software', maxPages: 1 },
+      { source: 'loker-id', keyword: 'Software', maxPages: 1 },
+      { source: 'dealls', keyword: 'Software', maxPages: 1 },
+      { source: 'glints', keyword: 'Software', maxPages: 1 },
+    ]);
+
+    // 3 sources succeed, 1 (glints) fails
+    orchestrator.run
+      .mockResolvedValueOnce({ discovered: 5, inserted: 2, updated: 0, duplicates: 3, failed: 0 })
+      .mockResolvedValueOnce({ discovered: 4, inserted: 1, updated: 0, duplicates: 3, failed: 0 })
+      .mockResolvedValueOnce({ discovered: 6, inserted: 3, updated: 0, duplicates: 3, failed: 0 })
+      .mockRejectedValueOnce(new Error('Glints connection timeout'));
+
+    const service = new CandidateSearchService(
+      searchProfileService,
+      profileRepo,
+      searchPlanner,
+      scrapeRunRepo,
+      orchestrator,
+      undefined,
+      searchPreferencesService,
+      searchExecutionRepo
+    );
+
+    const result = await service.runManualSearch('cand-1', { maxIntents: 4 });
+    expect(result.runIds).toHaveLength(4);
+
+    // Allow background promises to resolve
+    await new Promise((r) => setTimeout(r, 80));
+
+    expect(searchExecutionRepo.finish).toHaveBeenCalledWith(
+      'cand-1',
+      'exec-123',
+      expect.objectContaining({
+        status: 'partial',
+        summary: expect.objectContaining({
+          discovered: 15,
+          inserted: 6,
+        }),
+      })
+    );
+  });
 });

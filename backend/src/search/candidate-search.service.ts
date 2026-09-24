@@ -13,6 +13,7 @@ import type {
   SearchExecutionStage,
 } from './search-execution.repository.js';
 import { buildSearchIdentity, normalizeScheduledSearch } from '../scheduler/scheduled-scrape-task.js';
+import { getJobSourceDefinition, isJobSourceAvailable } from './job-source-registry.js';
 
 export class SearchProfileNotReadyError extends Error {
   public readonly code = 'SEARCH_PROFILE_NOT_READY';
@@ -40,8 +41,6 @@ export interface CandidateSearchExecutionResponse {
 }
 
 export class CandidateSearchService {
-  private readonly supportedSources = new Set(['jobstreet', 'loker-id']);
-
   public constructor(
     private readonly searchProfileService: SearchProfileService,
     private readonly profileRepo: ProfileRepository,
@@ -77,7 +76,7 @@ export class CandidateSearchService {
       }
     );
 
-    const validIntents = allIntents.filter((intent) => this.supportedSources.has(intent.source));
+    const validIntents = allIntents.filter((intent) => isJobSourceAvailable(intent.source));
     if (validIntents.length === 0) {
       throw new SearchProfileNotReadyError('No supported search sources enabled for your profile.');
     }
@@ -122,7 +121,7 @@ export class CandidateSearchService {
         { id: 'stage:init', name: 'Search Initialized', status: 'completed' },
         ...uniqueSources.map((src) => ({
           id: `stage:scrape:${src}`,
-          name: `${src === 'loker-id' ? 'Loker.id' : src.charAt(0).toUpperCase() + src.slice(1)} Scraping`,
+          name: `${this.formatSourceName(src)} Scraping`,
           status: 'pending' as const,
         })),
         { id: 'stage:norm', name: 'Normalization & Deduplication', status: 'pending' },
@@ -230,7 +229,7 @@ export class CandidateSearchService {
     if (!searches || searches.length === 0) return;
 
     for (const search of searches) {
-      if (!this.supportedSources.has(search.source)) continue;
+      if (!isJobSourceAvailable(search.source)) continue;
 
       const normalized = normalizeScheduledSearch({
         source: search.source,
@@ -267,6 +266,8 @@ export class CandidateSearchService {
   }
 
   private formatSourceName(src: string): string {
+    const def = getJobSourceDefinition(src);
+    if (def) return def.name;
     if (src.toLowerCase() === 'loker-id' || src.toLowerCase() === 'loker.id') return 'Loker.id';
     return src.charAt(0).toUpperCase() + src.slice(1);
   }
