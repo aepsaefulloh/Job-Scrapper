@@ -5,6 +5,7 @@ import AppLayout from '../layouts/AppLayout.vue';
 import LoadingSkeleton from '../components/common/LoadingSkeleton.vue';
 import EmptyState from '../components/common/EmptyState.vue';
 import { useSearchExecutions } from '../composables/useSearchExecutions';
+import { useJobSources } from '../composables/useJobSources';
 import type { SearchExecutionRecord, SearchExecutionSource } from '../types/search-execution';
 import {
   ArrowLeft,
@@ -37,6 +38,8 @@ const {
   setPage,
   formatDuration,
 } = useSearchExecutions();
+
+const { availableSources } = useJobSources();
 
 onMounted(async () => {
   await fetchExecutions();
@@ -145,8 +148,9 @@ function calculateDuration(run: SearchExecutionRecord): number {
           class="text-xs bg-stone-50 border border-stone-200 rounded-md px-2.5 py-1.5 text-stone-800 focus:outline-none focus:ring-1 focus:ring-stone-400"
         >
           <option value="">All Sources</option>
-          <option value="jobstreet">Jobstreet</option>
-          <option value="loker-id">Loker.id</option>
+          <option v-for="src in availableSources" :key="src.id" :value="src.id">
+            {{ src.name }}
+          </option>
         </select>
 
         <!-- Trigger Filter -->

@@ -1,10 +1,13 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { Search, Building2, Globe, SlidersHorizontal } from 'lucide-vue-next';
+import { useJobSources } from '../../composables/useJobSources';
 
 const emit = defineEmits<{
   (e: 'filter', filters: { keyword: string; company: string; source: string }): void;
 }>();
+
+const { availableSources } = useJobSources();
 
 const keyword = ref('');
 const company = ref('');
@@ -62,8 +65,9 @@ function handleReset() {
           class="w-full pl-9 pr-3 py-2 text-sm bg-surface-muted/50 border border-surface-border rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-700/20 focus:border-emerald-700 transition appearance-none cursor-pointer text-stone-700"
         >
           <option value="">All Sources</option>
-          <option value="jobstreet">Jobstreet</option>
-          <option value="loker-id">Loker.id</option>
+          <option v-for="src in availableSources" :key="src.id" :value="src.id">
+            {{ src.name }}
+          </option>
           <option value="manual">Manual</option>
         </select>
       </div>
