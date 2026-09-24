@@ -72,8 +72,7 @@ describe('ProfileEditModal.vue', () => {
     // Add a new skill
     const newSkillInput = wrapper.find('input#newSkill');
     await newSkillInput.setValue('PostgreSQL');
-    const addSkillBtn = wrapper.find('button#addSkillBtn');
-    await addSkillBtn.trigger('click');
+    await newSkillInput.trigger('keydown', { key: 'Enter' });
 
     expect(wrapper.findAll('.skill-chip')).toHaveLength(3);
     expect(wrapper.text()).toContain('PostgreSQL');
@@ -83,6 +82,24 @@ describe('ProfileEditModal.vue', () => {
     await removeBtn.trigger('click');
 
     expect(wrapper.findAll('.skill-chip')).toHaveLength(2);
+  });
+
+  it('splits comma-separated skills into individual tags without using a pipe delimiter', async () => {
+    const wrapper = mount(ProfileEditModal, {
+      props: { profile: mockProfile },
+    });
+
+    const skillsTabButton = wrapper.findAll('button').find((b) => b.text().includes('Skills'));
+    await skillsTabButton?.trigger('click');
+
+    const newSkillInput = wrapper.find('input#newSkill');
+    await newSkillInput.setValue('Docker, Go');
+    await newSkillInput.trigger('keydown', { key: 'Enter' });
+
+    expect(wrapper.findAll('.skill-chip')).toHaveLength(4);
+    expect(wrapper.text()).toContain('Docker');
+    expect(wrapper.text()).toContain('Go');
+    expect(wrapper.text()).not.toContain('Docker, Go');
   });
 
   it('emits close event when Cancel button is clicked', async () => {
