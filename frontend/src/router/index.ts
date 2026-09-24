@@ -27,6 +27,12 @@ const routes: RouteRecordRaw[] = [
     meta: { requiresAuth: true },
   },
   {
+    path: '/search-runs/:id',
+    name: 'search-run-detail',
+    component: () => import('../views/SearchRunDetailView.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
     path: '/applications',
     name: 'applications',
     component: () => import('../views/ApplicationsView.vue'),
