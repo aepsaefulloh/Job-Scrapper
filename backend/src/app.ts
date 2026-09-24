@@ -205,10 +205,32 @@ export function createApp(dependencies: AppDependencies): Express {
 
     router.get('/search-runs', authenticate, async (req, res, next) => {
       try {
-        const limit = req.query.limit ? Number(req.query.limit) : 10;
+        const limit = req.query.limit !== undefined ? Number(req.query.limit) : 20;
+        const offset = req.query.offset !== undefined ? Number(req.query.offset) : 0;
+        const status = typeof req.query.status === 'string' && req.query.status.trim() ? req.query.status.trim() : undefined;
+        const source = typeof req.query.source === 'string' && req.query.source.trim() ? req.query.source.trim() : undefined;
+        const trigger = req.query.trigger === 'manual' || req.query.trigger === 'scheduled' ? req.query.trigger : undefined;
+        const from = typeof req.query.from === 'string' && req.query.from.trim() ? req.query.from.trim() : undefined;
+        const to = typeof req.query.to === 'string' && req.query.to.trim() ? req.query.to.trim() : undefined;
+
         const repo = dependencies.createSearchExecutionRepo!(res.locals.auth.accessToken);
-        const items = await repo.list(res.locals.auth.userId, limit);
-        res.json({ items });
+        const result = await repo.list(res.locals.auth.userId, {
+          limit,
+          offset,
+          status,
+          source,
+          trigger,
+          from,
+          to,
+        });
+        res.json({
+          items: result.items,
+          pagination: {
+            limit,
+            offset,
+            total: result.total,
+          },
+        });
       } catch (error) {
         next(error);
       }

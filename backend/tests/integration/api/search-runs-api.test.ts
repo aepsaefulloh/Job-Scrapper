@@ -51,11 +51,11 @@ function createTestApp(overrides: Record<string, unknown> = {}) {
       }
       return null;
     }),
-    list: vi.fn().mockImplementation(async (candidateId, limit) => {
+    list: vi.fn().mockImplementation(async (candidateId, options) => {
       if (candidateId === 'candidate-a') {
-        return [sampleExecution];
+        return { items: [sampleExecution], total: 1 };
       }
-      return [];
+      return { items: [], total: 0 };
     }),
     create: vi.fn(),
     updateStage: vi.fn(),
@@ -137,15 +137,44 @@ describe('Search Runs API (Execution Parent)', () => {
       await request(app).get('/api/search-runs').expect(401);
     });
 
-    it('returns list of executions for authenticated user', async () => {
+    it('returns list of executions with pagination for authenticated user', async () => {
       const { app, mockSearchExecutionRepo, sampleExecution } = createTestApp();
       const res = await request(app)
-        .get('/api/search-runs?limit=5')
+        .get('/api/search-runs?limit=5&offset=0')
         .set('Authorization', 'Bearer token-a')
         .expect(200);
 
-      expect(res.body).toEqual({ items: [sampleExecution] });
-      expect(mockSearchExecutionRepo.list).toHaveBeenCalledWith('candidate-a', 5);
+      expect(res.body).toEqual({
+        items: [sampleExecution],
+        pagination: { limit: 5, offset: 0, total: 1 },
+      });
+      expect(mockSearchExecutionRepo.list).toHaveBeenCalledWith('candidate-a', {
+        limit: 5,
+        offset: 0,
+        status: undefined,
+        source: undefined,
+        trigger: undefined,
+        from: undefined,
+        to: undefined,
+      });
+    });
+
+    it('passes filter parameters to the repository', async () => {
+      const { app, mockSearchExecutionRepo } = createTestApp();
+      await request(app)
+        .get('/api/search-runs?limit=10&offset=5&status=completed&source=jobstreet&trigger=manual&from=2026-09-01T00:00:00Z&to=2026-09-24T00:00:00Z')
+        .set('Authorization', 'Bearer token-a')
+        .expect(200);
+
+      expect(mockSearchExecutionRepo.list).toHaveBeenCalledWith('candidate-a', {
+        limit: 10,
+        offset: 5,
+        status: 'completed',
+        source: 'jobstreet',
+        trigger: 'manual',
+        from: '2026-09-01T00:00:00Z',
+        to: '2026-09-24T00:00:00Z',
+      });
     });
   });
 
