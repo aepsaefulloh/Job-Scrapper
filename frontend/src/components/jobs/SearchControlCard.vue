@@ -558,6 +558,15 @@ onMounted(async () => {
             </RouterLink>
           </div>
         </div>
+
+        <div class="pt-2 flex justify-end">
+          <RouterLink
+            to="/search-runs"
+            class="text-[11px] text-brand-700 hover:text-brand-900 font-semibold hover:underline inline-flex items-center gap-1"
+          >
+            View Full Search History →
+          </RouterLink>
+        </div>
       </div>
     </div>
 
