@@ -51,8 +51,29 @@ describe('ProfileEditModal.vue', () => {
     const displayNameInput = wrapper.find<HTMLInputElement>('input#displayName');
     expect(displayNameInput.element.value).toBe('Alex Doe');
 
-    const headlineInput = wrapper.find<HTMLInputElement>('input#headline');
-    expect(headlineInput.element.value).toBe('Full Stack Engineer');
+    expect(wrapper.findAll('.target-role-tag')).toHaveLength(1);
+    expect(wrapper.text()).toContain('Full Stack Engineer');
+  });
+
+  it('edits target roles as tags and saves them as a comma-separated headline', async () => {
+    mockUpdateProfile.mockResolvedValueOnce(mockProfile);
+    mockFetchSearchProfile.mockResolvedValueOnce({});
+    const wrapper = mount(ProfileEditModal, {
+      props: { profile: mockProfile },
+    });
+
+    const roleInput = wrapper.find('input#newTargetRole');
+    await roleInput.setValue('Frontend Engineer, Technical Lead');
+    await roleInput.trigger('keydown', { key: 'Enter' });
+
+    expect(wrapper.findAll('.target-role-tag')).toHaveLength(3);
+
+    await wrapper.find('button#saveBtn').trigger('click');
+    expect(mockUpdateProfile).toHaveBeenCalledWith(
+      expect.objectContaining({
+        headline: 'Full Stack Engineer, Frontend Engineer, Technical Lead',
+      })
+    );
   });
 
   it('allows adding and removing skills in the Skills tab', async () => {

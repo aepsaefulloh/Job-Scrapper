@@ -30,7 +30,8 @@ const activeTab = ref<TabId>('general');
 
 // Form state
 const displayName = ref(props.profile.displayName);
-const headline = ref(props.profile.headline ?? '');
+const targetRoles = ref(splitStoredTargetRoles(props.profile.headline));
+const newTargetRoleInput = ref('');
 const summary = ref(props.profile.summary ?? '');
 const experience = ref(props.profile.experience ?? '');
 const careerPreferences = ref(props.profile.careerPreferences ?? '');
@@ -60,6 +61,35 @@ function handleSkillKeydown(event: KeyboardEvent) {
   }
 }
 
+function splitStoredTargetRoles(headline: string | null): string[] {
+  if (!headline) return [];
+  return headline
+    .split(/[,/|;•·]/)
+    .map((role) => role.trim())
+    .filter((role, index, roles) => role.length > 0 && roles.findIndex((item) => item.toLowerCase() === role.toLowerCase()) === index);
+}
+
+function addTargetRole() {
+  for (const value of newTargetRoleInput.value.split(',')) {
+    const trimmed = value.trim();
+    if (!trimmed) continue;
+    const exists = targetRoles.value.some((role) => role.toLowerCase() === trimmed.toLowerCase());
+    if (!exists) targetRoles.value.push(trimmed);
+  }
+  newTargetRoleInput.value = '';
+}
+
+function handleTargetRoleKeydown(event: KeyboardEvent) {
+  if (event.key === 'Enter' || event.key === ',') {
+    event.preventDefault();
+    addTargetRole();
+  }
+}
+
+function removeTargetRole(index: number) {
+  targetRoles.value.splice(index, 1);
+}
+
 function removeSkill(index: number) {
   skills.value.splice(index, 1);
 }
@@ -82,7 +112,7 @@ async function handleSave() {
 
   const payload: UpdateProfilePayload = {
     displayName: trimmedName,
-    headline: headline.value.trim() || null,
+    headline: targetRoles.value.join(', ') || null,
     summary: summary.value.trim() || null,
     experience: experience.value.trim() || null,
     careerPreferences: careerPreferences.value.trim() || null,
@@ -175,19 +205,42 @@ async function handleSave() {
           </div>
 
           <div>
-            <label for="headline" class="block text-xs font-bold text-stone-900 mb-1">
-              Professional Headline / Target Role
+            <label for="newTargetRole" class="block text-xs font-bold text-stone-900 mb-1">
+              Target Roles ({{ targetRoles.length }})
             </label>
-            <input
-              id="headline"
-              v-model="headline"
-              type="text"
-              maxlength="255"
-              class="w-full px-3 py-2 text-sm rounded-lg border border-stone-300 focus:outline-none focus:ring-2 focus:ring-emerald-700/20 focus:border-emerald-700"
-              placeholder="e.g. Senior Full Stack Engineer / Technical Lead"
-            />
-            <p class="text-[11px] text-stone-400 mt-1">
-              Used to automatically derive your primary job search titles and roles.
+            <div
+              class="flex min-h-24 flex-wrap items-center gap-2 rounded-lg border border-stone-300 bg-stone-50/50 p-3 transition-colors focus-within:border-emerald-700 focus-within:ring-2 focus-within:ring-emerald-700/20"
+            >
+              <span
+                v-for="(role, idx) in targetRoles"
+                :key="role"
+                class="target-role-tag inline-flex items-center gap-1.5 rounded-full border border-stone-300 bg-white px-2.5 py-1 text-xs font-medium text-stone-800"
+              >
+                {{ role }}
+                <button
+                  type="button"
+                  :aria-label="`Remove ${role}`"
+                  @click="removeTargetRole(idx)"
+                  class="rounded-sm text-stone-500 hover:text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-700/40"
+                >
+                  <X class="w-3 h-3" />
+                </button>
+              </span>
+              <input
+                id="newTargetRole"
+                v-model="newTargetRoleInput"
+                type="text"
+                @keydown="handleTargetRoleKeydown"
+                @blur="addTargetRole"
+                class="min-w-48 flex-1 bg-transparent px-1 py-1.5 text-sm text-stone-800 outline-none placeholder:text-stone-400"
+                placeholder="Add a target role"
+              />
+              <span v-if="targetRoles.length === 0" class="text-xs italic text-stone-400">
+                Add the positions you want to search for.
+              </span>
+            </div>
+            <p class="mt-2 text-[11px] text-stone-500">
+              Type a role, then press Enter or comma to add it. These roles guide your job search.
             </p>
           </div>
         </div>
