@@ -14,7 +14,8 @@ async function test() {
     firefoxUserPrefs: opts.firefox_user_prefs,
   });
 
-  const page = await browser.newPage();
+  const context = await browser.newContext({ viewport: null });
+  const page = await context.newPage();
   console.log('Navigating to example.com...');
   await page.goto('https://example.com');
   console.log('SUCCESS! PAGE TITLE:', await page.title());

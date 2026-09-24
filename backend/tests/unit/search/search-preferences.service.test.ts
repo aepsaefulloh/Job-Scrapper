@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'bun:test';
+import { describe, expect, it } from 'vitest';
 import {
   DEFAULT_SEARCH_PREFERENCES,
   type JobSearchPreferences,
@@ -80,9 +80,9 @@ describe('SearchPreferencesService', () => {
 
     await expect(
       service.updatePreferences('candidate-1', {
-        sources: ['glints' as any],
+        sources: ['indeed' as any],
       })
-    ).rejects.toThrow('Unsupported job source: "glints"');
+    ).rejects.toThrow('Unsupported job source: "indeed"');
 
     await expect(
       service.updatePreferences('candidate-1', {

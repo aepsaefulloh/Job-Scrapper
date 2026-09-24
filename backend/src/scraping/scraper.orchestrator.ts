@@ -158,6 +158,11 @@ function toRawJob(job: ScrapedJob): RawJobInput {
   const publishedAt =
     parseRelativeDate(job.publishedAt, new Date(job.scrapedAt)) ?? job.publishedAt;
 
+  const description =
+    job.description && job.description.trim().length > 0
+      ? job.description
+      : `${job.title} at ${job.company ?? 'Unknown'}`;
+
   return {
     source: job.source,
     ...(job.externalId ? { externalId: job.externalId } : {}),
@@ -166,7 +171,7 @@ function toRawJob(job: ScrapedJob): RawJobInput {
     payload: {
       title: job.title,
       company: job.company ?? 'Unknown',
-      description: job.description ?? '',
+      description,
       location: job.location,
       employmentType: job.employmentType,
       workplaceType: job.workMode,

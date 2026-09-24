@@ -34,24 +34,30 @@ export class GlintsScraper implements JobScraper {
             const searchHtml = await session.getContent();
             const summaries = parseGlintsSearchPage(searchHtml, this.baseUrl);
 
+            let detailCount = 0;
+            const maxDetails = query.detailLimit ?? 10;
+
             for (const summary of summaries) {
               if (jobs.has(summary.jobUrl)) continue;
 
-              try {
-                await session.goto(summary.jobUrl);
-                const detailHtml = await session.getContent();
-                const description = parseGlintsDetailPage(detailHtml);
-                if (description) {
-                  jobs.set(summary.jobUrl, { ...summary, description });
-                  continue;
+              if (detailCount < maxDetails) {
+                detailCount++;
+                try {
+                  await session.goto(summary.jobUrl);
+                  const detailHtml = await session.getContent();
+                  const description = parseGlintsDetailPage(detailHtml);
+                  if (description) {
+                    jobs.set(summary.jobUrl, { ...summary, description });
+                    continue;
+                  }
+                } catch (detailErr) {
+                  // If detail extraction fails for a single job, keep the summary without description
+                  this.logger?.warn?.({
+                    event: 'scraper.glints.detail_failed',
+                    jobUrl: summary.jobUrl,
+                    error: detailErr instanceof Error ? detailErr.message : 'Detail navigation failed',
+                  });
                 }
-              } catch (detailErr) {
-                // If detail extraction fails for a single job, keep the summary without description
-                this.logger?.warn?.({
-                  event: 'scraper.glints.detail_failed',
-                  jobUrl: summary.jobUrl,
-                  error: detailErr instanceof Error ? detailErr.message : 'Detail navigation failed',
-                });
               }
 
               jobs.set(summary.jobUrl, summary);

@@ -129,11 +129,11 @@ describe('Search Preferences API Endpoints', () => {
       const res = await request(app)
         .put('/api/search-preferences')
         .set('Authorization', 'Bearer token-a')
-        .send({ sources: ['glints'] })
+        .send({ sources: ['indeed'] })
         .expect(400);
 
       expect(res.body.error.code).toBe('INVALID_PREFERENCES');
-      expect(res.body.error.message).toContain('Unsupported job source: "glints"');
+      expect(res.body.error.message).toContain('Unsupported job source: "indeed"');
     });
 
     it('rejects invalid maxPostingAgeDays with 400', async () => {
