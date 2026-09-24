@@ -13,10 +13,10 @@ describe('useJobSources', () => {
     vi.clearAllMocks();
   });
 
-  it('initializes with static fallback sources containing jobstreet and loker-id', () => {
+  it('initializes with static fallback sources containing jobstreet, loker-id, dealls, and glints', () => {
     const { jobSources, availableSources } = useJobSources();
-    expect(jobSources.value.length).toBeGreaterThanOrEqual(2);
-    expect(availableSources.value.map((s) => s.id)).toEqual(['jobstreet', 'loker-id']);
+    expect(jobSources.value.length).toBeGreaterThanOrEqual(4);
+    expect(availableSources.value.map((s) => s.id)).toEqual(['jobstreet', 'loker-id', 'dealls', 'glints']);
   });
 
   it('fetches remote sources and updates reactive state', async () => {

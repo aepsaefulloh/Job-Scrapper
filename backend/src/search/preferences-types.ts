@@ -1,4 +1,9 @@
-export const SUPPORTED_JOB_SOURCES = ['jobstreet', 'loker-id'] as const;
+export const SUPPORTED_JOB_SOURCES = [
+  'jobstreet',
+  'loker-id',
+  'dealls',
+  'glints',
+] as const;
 export type SupportedJobSource = (typeof SUPPORTED_JOB_SOURCES)[number];
 
 export const SUPPORTED_WORK_MODES = ['remote', 'hybrid', 'onsite'] as const;
