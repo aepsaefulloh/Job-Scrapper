@@ -28,6 +28,7 @@ import type { ScrapeRunService } from './scraping/scrape-run.service.js';
 export type ProfileServiceType = {
   upload(input: { candidateId: string; fileName: string; contents: string }): Promise<ProfileUploadResult>;
   getProfile?(candidateId: string): Promise<CandidateProfileDetail | null>;
+  updateProfile?(candidateId: string, input: any): Promise<CandidateProfileDetail>;
 };
 
 type Authenticator = (accessToken: string) => Promise<{ userId: string; accessToken: string }>;
@@ -85,6 +86,52 @@ export function createApp(dependencies: AppDependencies): Express {
       if (!profile) return void res.status(404).json({ error: { code: 'PROFILE_NOT_FOUND', message: 'Active profile was not found.' } });
       res.json(profile);
     } catch (error) {
+      next(error);
+    }
+  });
+
+  router.put('/profile', authenticate, async (req, res, next) => {
+    try {
+      const { displayName, headline, summary, experience, careerPreferences, skills } = req.body ?? {};
+      if (typeof displayName !== 'string' || displayName.trim().length === 0) {
+        return void res.status(400).json({
+          error: { code: 'VALIDATION_ERROR', message: 'Display name is required and cannot be empty.' },
+        });
+      }
+      if (displayName.trim().length > 120) {
+        return void res.status(400).json({
+          error: { code: 'VALIDATION_ERROR', message: 'Display name exceeds maximum length of 120 characters.' },
+        });
+      }
+      if (skills !== undefined && !Array.isArray(skills)) {
+        return void res.status(400).json({
+          error: { code: 'VALIDATION_ERROR', message: 'Skills must be an array of strings.' },
+        });
+      }
+
+      const service = dependencies.createProfileService(res.locals.auth.accessToken);
+      if (!service.updateProfile) {
+        return void res.status(501).json({
+          error: { code: 'NOT_IMPLEMENTED', message: 'Profile update not implemented.' },
+        });
+      }
+
+      const updated = await service.updateProfile(res.locals.auth.userId, {
+        displayName: displayName.trim(),
+        headline: typeof headline === 'string' ? headline.trim() : headline,
+        summary: typeof summary === 'string' ? summary.trim() : summary,
+        experience: typeof experience === 'string' ? experience.trim() : experience,
+        careerPreferences: typeof careerPreferences === 'string' ? careerPreferences.trim() : careerPreferences,
+        skills: Array.isArray(skills) ? skills.map((s) => String(s)) : undefined,
+      });
+
+      res.json(updated);
+    } catch (error: any) {
+      if (error?.message === 'Active profile not found.') {
+        return void res.status(404).json({
+          error: { code: 'PROFILE_NOT_FOUND', message: 'Active profile was not found.' },
+        });
+      }
       next(error);
     }
   });
