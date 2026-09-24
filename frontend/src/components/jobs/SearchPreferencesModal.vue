@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue';
 import { X, Plus, AlertCircle, Loader2, Check } from 'lucide-vue-next';
+import SourceMultiSelect from './SourceMultiSelect.vue';
 import type {
   JobSearchPreferences,
   SupportedJobSource,
@@ -161,45 +162,7 @@ function submit() {
           <label class="block text-xs font-semibold text-stone-900 mb-1.5">
             Job Portals & Sources
           </label>
-          <div class="grid grid-cols-2 gap-2">
-            <button
-              type="button"
-              @click="toggleSource('jobstreet')"
-              class="flex items-center justify-between p-2.5 rounded-lg border text-left transition-colors"
-              :class="
-                formSources.includes('jobstreet')
-                  ? 'border-brand-500 bg-brand-50/40 text-brand-950 font-medium'
-                  : 'border-stone-200 bg-white text-stone-600 hover:bg-stone-50'
-              "
-            >
-              <span>Jobstreet (ID)</span>
-              <span
-                v-if="formSources.includes('jobstreet')"
-                class="w-4 h-4 rounded-full bg-brand-600 text-white flex items-center justify-center text-[10px]"
-              >
-                <Check class="w-2.5 h-2.5 stroke-[3]" />
-              </span>
-            </button>
-
-            <button
-              type="button"
-              @click="toggleSource('loker-id')"
-              class="flex items-center justify-between p-2.5 rounded-lg border text-left transition-colors"
-              :class="
-                formSources.includes('loker-id')
-                  ? 'border-brand-500 bg-brand-50/40 text-brand-950 font-medium'
-                  : 'border-stone-200 bg-white text-stone-600 hover:bg-stone-50'
-              "
-            >
-              <span>Loker.id</span>
-              <span
-                v-if="formSources.includes('loker-id')"
-                class="w-4 h-4 rounded-full bg-brand-600 text-white flex items-center justify-center text-[10px]"
-              >
-                <Check class="w-2.5 h-2.5 stroke-[3]" />
-              </span>
-            </button>
-          </div>
+          <SourceMultiSelect v-model="formSources as any" />
           <p class="text-[11px] text-stone-400 mt-1">
             Only verified live scrapers are selectable.
           </p>

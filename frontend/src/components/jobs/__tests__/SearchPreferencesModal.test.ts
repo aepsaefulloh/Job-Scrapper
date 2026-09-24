@@ -22,9 +22,8 @@ describe('SearchPreferencesModal', () => {
     });
 
     expect(wrapper.text()).toContain('Job Search Preferences');
-    expect(wrapper.text()).toContain('Jobstreet (ID)');
-    expect(wrapper.text()).toContain('Loker.id');
-    // Ensure unimplemented sources are NOT shown
+    expect(wrapper.text()).toContain('Jobstreet, Loker.id');
+    // Ensure unimplemented sources are NOT selected in summary
     expect(wrapper.text()).not.toContain('Glints');
     expect(wrapper.text()).not.toContain('LinkedIn');
 
@@ -85,24 +84,23 @@ describe('SearchPreferencesModal', () => {
     expect(saved.sources).toEqual(['jobstreet', 'loker-id']);
   });
 
-  it('prevents deselecting all sources', async () => {
+  it('prevents submitting when all sources are cleared', async () => {
     const wrapper = mount(SearchPreferencesModal, {
       props: {
         modelValue: true,
-        preferences: {
-          ...defaultPrefs,
-          sources: ['jobstreet'],
-        },
+        preferences: defaultPrefs,
       },
     });
 
-    // Try to toggle off Jobstreet
-    const jobstreetBtn = wrapper
-      .findAll('button')
-      .find((b) => b.text().includes('Jobstreet'));
-    await jobstreetBtn!.trigger('click');
+    // Open dropdown and click Clear
+    await wrapper.find('button.source-select-trigger').trigger('click');
+    await wrapper.find('button.btn-clear').trigger('click');
 
-    expect(wrapper.text()).toContain('At least one search source must be selected.');
+    // Click Save Preferences
+    const saveBtn = wrapper.findAll('button').find((b) => b.text().includes('Save Preferences'));
+    await saveBtn!.trigger('click');
+
+    expect(wrapper.text()).toContain('At least one search source must be enabled.');
     expect(wrapper.emitted('save')).toBeFalsy();
   });
 
