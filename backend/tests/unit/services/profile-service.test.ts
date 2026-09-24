@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { ProfileService } from '../../../src/services/profile-service.js';
 import type { ProfileDocumentStorage } from '../../../src/infrastructure/supabase/profile-document-storage.js';
@@ -57,5 +57,46 @@ describe('ProfileService', () => {
       .rejects.toThrow('database unavailable');
 
     expect(storage.removedPaths).toEqual(storage.uploadedPaths);
+  });
+
+  it('updates profile and invokes search profile getOrDerive for cascade sync', async () => {
+    const storage = new FakeStorage();
+    const repository = new FakeRepository() as any;
+    const mockUpdatedProfile = {
+      id: 'profile-id',
+      candidateId,
+      displayName: 'Ada Lovelace Updated',
+      headline: 'Computing Pioneer',
+      summary: 'First programmer',
+      experience: 'Engine development',
+      careerPreferences: 'Mathematical work',
+      skills: [{ displayName: 'Algorithms', canonicalName: 'algorithms' }],
+      updatedAt: '2026-09-24T12:00:00.000Z',
+    };
+
+    repository.updateActiveProfile = vi.fn().mockResolvedValue(mockUpdatedProfile);
+    const mockSearchProfileService = {
+      getOrDerive: vi.fn().mockResolvedValue({ candidateId, targetRoles: ['Computing Pioneer'] }),
+    };
+
+    const service = new ProfileService(storage, repository, mockSearchProfileService as any);
+
+    const result = await (service as any).updateProfile(candidateId, {
+      displayName: 'Ada Lovelace Updated',
+      headline: 'Computing Pioneer',
+      summary: 'First programmer',
+      skills: ['Algorithms', 'algorithms'],
+    });
+
+    expect(repository.updateActiveProfile).toHaveBeenCalledWith(
+      candidateId,
+      expect.objectContaining({
+        displayName: 'Ada Lovelace Updated',
+        headline: 'Computing Pioneer',
+        skills: [{ displayName: 'Algorithms', canonicalName: 'algorithms' }],
+      })
+    );
+    expect(mockSearchProfileService.getOrDerive).toHaveBeenCalledWith(candidateId, mockUpdatedProfile);
+    expect(result.displayName).toBe('Ada Lovelace Updated');
   });
 });

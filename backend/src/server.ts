@@ -87,7 +87,15 @@ const app = createApp({
   staticDir,
   profileDocumentMaxBytes: env.profileDocumentMaxBytes, logger,
   authenticate: async (accessToken) => { const client = createUserSupabaseClient(accessToken, env); const { data, error } = await client.auth.getUser(); if (error || !data.user) throw new Error('Invalid access token.'); return { userId: data.user.id, accessToken }; },
-  createProfileService: (accessToken) => { const client = createUserSupabaseClient(accessToken, env); return new ProfileService(new SupabaseProfileDocumentStorage(client), new SupabaseProfileRepository(client)); },
+  createProfileService: (accessToken) => {
+    const client = createUserSupabaseClient(accessToken, env);
+    const searchProfileService = new SearchProfileService(new SupabaseSearchProfileRepository(client));
+    return new ProfileService(
+      new SupabaseProfileDocumentStorage(client),
+      new SupabaseProfileRepository(client),
+      searchProfileService
+    );
+  },
   createMatchingService: (accessToken) => { const client = createUserSupabaseClient(accessToken, env); const provider = new SumoPodProvider({ baseUrl: env.aiBaseUrl, apiKey: env.aiApiKey }); const repository = new SupabaseMatchingRepository(client); return new DefaultMatchingService(new VectorSearchService(repository, { maxLimit: 200 }), repository, new LlmService(provider), env.aiChatModel); },
   createJobService: (accessToken) => new JobService(new SupabaseJobRepository(createUserSupabaseClient(accessToken, env))), createJobIngestionService: (accessToken) => new JobIngestionService(new SupabaseJobRepository(createUserSupabaseClient(accessToken, env))), createJobEmbeddingService: createEmbeddingRunner, jobService: { scrape: executeScrape },
   createApplicationService: (accessToken) => {
