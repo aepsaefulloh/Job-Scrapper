@@ -10,6 +10,16 @@ vi.mock('../../../composables/useSearchProfile');
 vi.mock('../../../composables/useScrapeRuns');
 vi.mock('../../../composables/useSearchPreferences');
 
+const mockPush = vi.fn();
+vi.mock('vue-router', () => ({
+  useRouter: () => ({ push: mockPush }),
+  RouterLink: {
+    name: 'RouterLink',
+    props: ['to'],
+    template: '<a><slot /></a>',
+  },
+}));
+
 describe('SearchControlCard', () => {
   const mockPreferences = {
     sources: ['jobstreet', 'loker-id'],
@@ -161,13 +171,15 @@ describe('SearchControlCard', () => {
     expect(wrapper.text()).toContain('+11 new'); // Loker.id new
   });
 
-  it('triggers search when button is clicked', async () => {
+  it('triggers search when button is clicked and redirects to /search-runs/:id', async () => {
+    mockTriggerSearch.mockResolvedValueOnce({ id: 'exec-123', status: 'running' });
     const wrapper = mount(SearchControlCard);
 
     const button = wrapper.find('button');
     await button.trigger('click');
 
     expect(mockTriggerSearch).toHaveBeenCalledWith({ maxPages: 1 });
+    expect(mockPush).toHaveBeenCalledWith('/search-runs/exec-123');
   });
 
   it('displays searching state with both active sources and disables button when isRunning is true', () => {

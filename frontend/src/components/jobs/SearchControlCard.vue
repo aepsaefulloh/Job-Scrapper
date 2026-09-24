@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
+import { useRouter, RouterLink } from 'vue-router';
 import {
   Play,
   RotateCw,
@@ -130,10 +131,15 @@ function formatDate(isoString: string): string {
   return `${date.toLocaleDateString([], { month: 'short', day: 'numeric' })}, ${timeStr}`;
 }
 
+const router = useRouter();
+
 async function handleSearch() {
   const result = await triggerSearch({ maxPages: 1 });
   if (result) {
     emit('search-completed');
+    if (result.id && router) {
+      router.push(`/search-runs/${result.id}`);
+    }
   }
 }
 
@@ -482,6 +488,15 @@ onMounted(async () => {
                 <span class="text-[10px] text-stone-500 uppercase">Failed</span>
               </div>
             </div>
+
+            <div class="pt-2 border-t border-stone-200/60 flex justify-end">
+              <RouterLink
+                :to="`/search-runs/${latestRun.id}`"
+                class="text-[11px] text-brand-700 hover:text-brand-900 font-semibold hover:underline inline-flex items-center gap-1"
+              >
+                View Run Details & Telemetry →
+              </RouterLink>
+            </div>
           </div>
 
           <div v-else class="text-stone-400 text-[11px] py-3">
@@ -535,6 +550,12 @@ onMounted(async () => {
             <span class="px-1.5 py-0.2 rounded text-[9px] font-semibold uppercase bg-stone-200/60 text-stone-600">
               {{ run.trigger === 'scheduled' ? 'Sched' : 'Manual' }}
             </span>
+            <RouterLink
+              :to="`/search-runs/${run.id}`"
+              class="text-[11px] text-brand-700 hover:text-brand-900 font-semibold hover:underline"
+            >
+              View →
+            </RouterLink>
           </div>
         </div>
       </div>
