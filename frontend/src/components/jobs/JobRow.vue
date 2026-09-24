@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { useRouter } from 'vue-router';
-import { Bookmark, Building2, MapPin } from 'lucide-vue-next';
+import { Bookmark, Building2, MapPin, Trash2 } from 'lucide-vue-next';
 import type { JobListItem } from '../../types/job';
 import MatchScoreRing from '../common/MatchScoreRing.vue';
 import SkillTag from '../common/SkillTag.vue';
@@ -14,6 +14,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: 'save', job: JobListItem): void;
+  (e: 'delete', job: JobListItem): void;
 }>();
 
 const router = useRouter();
@@ -99,6 +100,14 @@ const formattedTime = computed(() => {
           :class="{ 'text-emerald-700': isSaved }"
         >
           <Bookmark class="w-4 h-4" :class="{ 'fill-emerald-700': isSaved }" />
+        </button>
+        <button
+          type="button"
+          @click.stop="emit('delete', job)"
+          title="Delete job"
+          class="p-1.5 rounded-lg border border-transparent hover:border-surface-border hover:bg-rose-50 text-stone-400 hover:text-rose-600 transition"
+        >
+          <Trash2 class="w-4 h-4" />
         </button>
       </div>
 
