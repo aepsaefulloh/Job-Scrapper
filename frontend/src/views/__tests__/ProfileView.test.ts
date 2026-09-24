@@ -39,12 +39,40 @@ vi.mock('../../composables/useProfile', () => ({
 
 describe('ProfileView', () => {
   it('renders candidate profile name, headline, summary, and verified skills', () => {
-    const wrapper = mount(ProfileView);
+    const wrapper = mount(ProfileView, {
+      global: {
+        stubs: {
+          RouterLink: { template: '<a><slot /></a>' },
+        },
+      },
+    });
 
     expect(wrapper.text()).toContain('Aep Saefulloh');
     expect(wrapper.text()).toContain('Senior Full Stack Engineer');
     expect(wrapper.text()).toContain('Professional Summary');
     expect(wrapper.text()).toContain('Verified Skills');
     expect(wrapper.text()).toContain('Vue 3');
+  });
+
+  it('renders Edit Profile button and opens ProfileEditModal on click', async () => {
+    const wrapper = mount(ProfileView, {
+      global: {
+        stubs: {
+          RouterLink: { template: '<a><slot /></a>' },
+        },
+      },
+    });
+
+    const editBtn = wrapper.find('button#openEditProfileBtn');
+    expect(editBtn.exists()).toBe(true);
+    expect(editBtn.text()).toContain('Edit Profile');
+
+    // Initially modal is not open
+    expect(wrapper.findComponent({ name: 'ProfileEditModal' }).exists()).toBe(false);
+
+    await editBtn.trigger('click');
+
+    // Modal should now be open
+    expect(wrapper.findComponent({ name: 'ProfileEditModal' }).exists()).toBe(true);
   });
 });

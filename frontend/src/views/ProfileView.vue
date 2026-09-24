@@ -1,15 +1,17 @@
 <script setup lang="ts">
-import { onMounted } from 'vue';
+import { ref, onMounted } from 'vue';
 import AppLayout from '../layouts/AppLayout.vue';
 import ProfileUploader from '../components/profile/ProfileUploader.vue';
+import ProfileEditModal from '../components/profile/ProfileEditModal.vue';
 import SearchProfileCard from '../components/profile/SearchProfileCard.vue';
 import SkillTag from '../components/common/SkillTag.vue';
 import LoadingSkeleton from '../components/common/LoadingSkeleton.vue';
 import ErrorState from '../components/common/ErrorState.vue';
 import { useProfile } from '../composables/useProfile';
-import { User, Briefcase, Award, Compass, Calendar } from 'lucide-vue-next';
+import { User, Briefcase, Award, Compass, Calendar, Pencil } from 'lucide-vue-next';
 
 const { profile, loading, error, fetchProfile } = useProfile();
+const isEditModalOpen = ref(false);
 
 onMounted(() => {
   fetchProfile();
@@ -20,11 +22,23 @@ onMounted(() => {
   <AppLayout>
     <div class="space-y-6 max-w-5xl mx-auto">
       <!-- Header -->
-      <div>
-        <h1 class="text-2xl font-bold tracking-tight text-stone-900">Candidate Profile</h1>
-        <p class="text-sm text-stone-500 mt-0.5">
-          Your human-maintained career profile is the primary source of truth.
-        </p>
+      <div class="flex items-center justify-between">
+        <div>
+          <h1 class="text-2xl font-bold tracking-tight text-stone-900">Candidate Profile</h1>
+          <p class="text-sm text-stone-500 mt-0.5">
+            Your human-maintained career profile is the primary source of truth.
+          </p>
+        </div>
+        <button
+          v-if="profile"
+          id="openEditProfileBtn"
+          type="button"
+          @click="isEditModalOpen = true"
+          class="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg border border-surface-border bg-surface text-stone-800 hover:bg-stone-50 text-xs font-semibold shadow-subtle transition-colors cursor-pointer"
+        >
+          <Pencil class="w-3.5 h-3.5 text-stone-600" />
+          Edit Profile
+        </button>
       </div>
 
       <!-- Markdown Uploader -->
@@ -117,6 +131,14 @@ onMounted(() => {
           </div>
         </div>
       </div>
+
+      <!-- Edit Profile Modal -->
+      <ProfileEditModal
+        v-if="isEditModalOpen && profile"
+        :profile="profile"
+        @close="isEditModalOpen = false"
+        @saved="fetchProfile"
+      />
     </div>
   </AppLayout>
 </template>
