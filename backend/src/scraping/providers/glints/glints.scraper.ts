@@ -1,4 +1,5 @@
 import type { BrowserService } from '../../../browser/browser.interface.js';
+import type { Logger } from '../../../logging/logger.interface.js';
 import type { JobScraper, JobSearchQuery, ScrapedJob } from '../../scraper.interface.js';
 import { parseGlintsDetailPage, parseGlintsSearchPage } from './glints.parser.js';
 import { retryTransient } from '../../retry.js';
@@ -8,7 +9,8 @@ export class GlintsScraper implements JobScraper {
 
   public constructor(
     private readonly browser: BrowserService,
-    private readonly baseUrl = 'https://glints.com'
+    private readonly baseUrl = 'https://glints.com',
+    private readonly logger?: Logger
   ) {}
 
   public async search(query: JobSearchQuery): Promise<ScrapedJob[]> {
@@ -43,8 +45,13 @@ export class GlintsScraper implements JobScraper {
                   jobs.set(summary.jobUrl, { ...summary, description });
                   continue;
                 }
-              } catch {
+              } catch (detailErr) {
                 // If detail extraction fails for a single job, keep the summary without description
+                this.logger?.warn?.({
+                  event: 'scraper.glints.detail_failed',
+                  jobUrl: summary.jobUrl,
+                  error: detailErr instanceof Error ? detailErr.message : 'Detail navigation failed',
+                });
               }
 
               jobs.set(summary.jobUrl, summary);
