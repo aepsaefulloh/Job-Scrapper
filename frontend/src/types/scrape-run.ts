@@ -29,6 +29,10 @@ export interface LatestScrapeRunResponse {
 }
 
 export interface SearchRunTriggerResponse {
-  status: 'running';
-  runIds: string[];
+  id?: string;
+  status: 'running' | 'completed';
+  runIds?: string[];
+  totalIntents?: number;
+  sources?: string[];
+  message?: string;
 }
