@@ -17,6 +17,9 @@ const envSchema = z.object({
   AI_CHAT_MODEL: z.string({ error: 'AI_CHAT_MODEL is required.' }).min(1),
   AI_EMBEDDING_MODEL: z.string().min(1).default('text-embedding-3-small'),
   AI_EMBEDDING_DIMENSIONS: z.coerce.number().int().refine((value) => value === 1536, { message: 'AI_EMBEDDING_DIMENSIONS must be 1536.' }).default(1536),
+  AI_MATCH_MAX_JOBS_PER_RUN: z.coerce.number().int().min(1).max(100).default(20),
+  AI_MATCH_MIN_VECTOR_SCORE: z.coerce.number().min(-1).max(1).default(0.6),
+  AI_MATCH_MIN_RULE_SCORE: z.coerce.number().min(0).max(100).default(60),
   CAMOUFOX_EXECUTABLE_PATH: z.string().min(1).optional(),
   JOB_SCRAPE_ENABLED: booleanString.default(false),
   JOB_SCRAPE_CRON: z.string().min(1).default('0 7 * * *'),
@@ -27,6 +30,12 @@ const envSchema = z.object({
   JOB_EMBEDDING_RECOVERY_ENABLED: booleanString.default(false),
   JOB_EMBEDDING_RECOVERY_LIMIT: z.coerce.number().int().min(1).max(100).default(25)
 });
+
+export type AiMatchingPolicy = {
+  maxJobsPerRun: number;
+  minVectorScore: number;
+  minRuleScore: number;
+};
 
 export type AppEnv = {
   port: number;
@@ -39,6 +48,7 @@ export type AppEnv = {
   aiChatModel: string;
   aiEmbeddingModel: string;
   aiEmbeddingDimensions: number;
+  aiMatchingPolicy: AiMatchingPolicy;
   camoufoxExecutablePath?: string;
   jobScrapeEnabled: boolean;
   jobScrapeCron: string;
@@ -77,6 +87,11 @@ export function loadEnv(input: NodeJS.ProcessEnv): AppEnv {
     aiChatModel: result.data.AI_CHAT_MODEL,
     aiEmbeddingModel: result.data.AI_EMBEDDING_MODEL,
     aiEmbeddingDimensions: result.data.AI_EMBEDDING_DIMENSIONS,
+    aiMatchingPolicy: {
+      maxJobsPerRun: result.data.AI_MATCH_MAX_JOBS_PER_RUN,
+      minVectorScore: result.data.AI_MATCH_MIN_VECTOR_SCORE,
+      minRuleScore: result.data.AI_MATCH_MIN_RULE_SCORE
+    },
     camoufoxExecutablePath: result.data.CAMOUFOX_EXECUTABLE_PATH,
     jobScrapeEnabled: result.data.JOB_SCRAPE_ENABLED,
     jobScrapeCron: result.data.JOB_SCRAPE_CRON,
