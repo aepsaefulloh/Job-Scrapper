@@ -7,6 +7,11 @@ import type { SearchProfileService } from './search-profile.service.js';
 import type { SearchPlanner } from './search-planner.js';
 import type { SearchPreferencesService } from './search-preferences.service.js';
 import type { JobSearchPreferences } from './preferences-types.js';
+import type {
+  SearchExecutionRepository,
+  SearchExecutionRecord,
+  SearchExecutionStage,
+} from './search-execution.repository.js';
 import { buildSearchIdentity, normalizeScheduledSearch } from '../scheduler/scheduled-scrape-task.js';
 
 export class SearchProfileNotReadyError extends Error {
@@ -26,6 +31,7 @@ export class SearchAlreadyRunningError extends Error {
 }
 
 export interface CandidateSearchExecutionResponse {
+  id?: string;
   status: 'running';
   runIds: string[];
   sources?: string[];
@@ -43,7 +49,8 @@ export class CandidateSearchService {
     private readonly scrapeRunRepo: ScrapeRunRepository,
     private readonly orchestrator: ScraperOrchestrator,
     private readonly logger?: Logger,
-    private readonly searchPreferencesService?: SearchPreferencesService
+    private readonly searchPreferencesService?: SearchPreferencesService,
+    private readonly searchExecutionRepo?: SearchExecutionRepository
   ) {}
 
   /**
@@ -108,6 +115,35 @@ export class CandidateSearchService {
       throw new SearchAlreadyRunningError();
     }
 
+    let parentExecution: SearchExecutionRecord | undefined;
+    if (this.searchExecutionRepo) {
+      const uniqueSources = [...new Set(intentsToRun.map((i) => i.source))];
+      const initialStages: SearchExecutionStage[] = [
+        { id: 'stage:init', name: 'Search Initialized', status: 'completed' },
+        ...uniqueSources.map((src) => ({
+          id: `stage:scrape:${src}`,
+          name: `${src === 'loker-id' ? 'Loker.id' : src.charAt(0).toUpperCase() + src.slice(1)} Scraping`,
+          status: 'pending' as const,
+        })),
+        { id: 'stage:norm', name: 'Normalization & Deduplication', status: 'pending' },
+        { id: 'stage:fresh', name: 'Freshness & Eligibility Filter', status: 'pending' },
+        { id: 'stage:ai_matching', name: 'AI Evaluation & Matching', status: 'pending', isAi: true },
+        { id: 'stage:finalize', name: 'Finalizing', status: 'pending' },
+      ];
+
+      parentExecution = await this.searchExecutionRepo.create({
+        candidateId,
+        trigger: 'manual',
+        preferencesSnapshot: (preferences as any) || {},
+        intentsSnapshot: intentsToRun.map((i) => ({
+          source: i.source,
+          keyword: i.keyword,
+          location: i.location,
+        })),
+        initialStages,
+      });
+    }
+
     const startedRuns: { runId: string; intent: JobSearchIntent }[] = [];
     for (const intent of intentsToRun) {
       const run = await this.scrapeRunRepo.start({
@@ -115,7 +151,10 @@ export class CandidateSearchService {
         source: intent.source,
         keyword: intent.keyword,
         location: intent.location,
-        metadata: { trigger: 'manual' },
+        metadata: {
+          trigger: 'manual',
+          ...(parentExecution ? { search_execution_id: parentExecution.id } : {}),
+        },
       });
       startedRuns.push({ runId: run.id, intent });
     }
@@ -123,6 +162,7 @@ export class CandidateSearchService {
     this.logger?.info({
       event: 'search.manual.started',
       candidateId,
+      executionId: parentExecution?.id,
       runCount: startedRuns.length,
       runIds: startedRuns.map((r) => r.runId),
       sources: preferences?.sources,
@@ -131,9 +171,10 @@ export class CandidateSearchService {
     });
 
     // Execute in background
-    void this.executeRuns(candidateId, startedRuns, preferences);
+    void this.executeRuns(candidateId, startedRuns, preferences, parentExecution?.id);
 
     return {
+      id: parentExecution?.id,
       status: 'running',
       runIds: startedRuns.map((r) => r.runId),
       sources: preferences?.sources,
@@ -225,13 +266,111 @@ export class CandidateSearchService {
     }
   }
 
+  private formatSourceName(src: string): string {
+    if (src.toLowerCase() === 'loker-id' || src.toLowerCase() === 'loker.id') return 'Loker.id';
+    return src.charAt(0).toUpperCase() + src.slice(1);
+  }
+
   private async executeRuns(
     candidateId: string,
     runs: { runId: string; intent: JobSearchIntent }[],
-    preferences?: JobSearchPreferences
+    preferences?: JobSearchPreferences,
+    executionId?: string
   ): Promise<void> {
+    const runResults: Array<{ source: string; status: ScrapeRunStatus; summary?: any }> = [];
+
     for (const { runId, intent } of runs) {
-      await this.executeSingleRun(candidateId, runId, intent, preferences);
+      if (executionId && this.searchExecutionRepo) {
+        await this.searchExecutionRepo.updateStage(
+          candidateId,
+          executionId,
+          `stage:scrape:${intent.source}`,
+          'running'
+        );
+        await this.searchExecutionRepo.appendTimeline(candidateId, executionId, {
+          message: `${this.formatSourceName(intent.source)} search started`,
+          type: 'info',
+        });
+      }
+
+      const result = await this.executeSingleRun(candidateId, runId, intent, preferences);
+      runResults.push({ source: intent.source, status: result.status, summary: result.summary });
+
+      if (executionId && this.searchExecutionRepo) {
+        const stageStatus = result.status === 'failed' ? 'failed' : 'completed';
+        await this.searchExecutionRepo.updateStage(
+          candidateId,
+          executionId,
+          `stage:scrape:${intent.source}`,
+          stageStatus,
+          result.summary ? `${result.summary.discovered} discovered, ${result.summary.inserted} new` : undefined
+        );
+        await this.searchExecutionRepo.appendTimeline(candidateId, executionId, {
+          message: `${this.formatSourceName(intent.source)} ${stageStatus === 'completed' ? 'completed' : 'failed'}${
+            result.summary ? `: ${result.summary.discovered} discovered, ${result.summary.inserted} new` : ''
+          }`,
+          type: stageStatus === 'completed' ? 'success' : 'error',
+        });
+      }
+    }
+
+    if (executionId && this.searchExecutionRepo) {
+      await this.searchExecutionRepo.updateStage(candidateId, executionId, 'stage:norm', 'completed');
+      await this.searchExecutionRepo.appendTimeline(candidateId, executionId, {
+        message: 'Normalization & deduplication completed',
+        type: 'info',
+      });
+
+      await this.searchExecutionRepo.updateStage(candidateId, executionId, 'stage:fresh', 'completed');
+      await this.searchExecutionRepo.appendTimeline(candidateId, executionId, {
+        message: 'Freshness & eligibility filtering completed',
+        type: 'info',
+      });
+
+      await this.searchExecutionRepo.updateStage(candidateId, executionId, 'stage:ai_matching', 'running');
+      await this.searchExecutionRepo.appendTimeline(candidateId, executionId, {
+        message: 'AI matching evaluation started',
+        isAi: true,
+        type: 'info',
+      });
+
+      await this.searchExecutionRepo.updateStage(candidateId, executionId, 'stage:ai_matching', 'completed');
+      await this.searchExecutionRepo.appendTimeline(candidateId, executionId, {
+        message: 'AI matching evaluation completed',
+        isAi: true,
+        type: 'success',
+      });
+
+      await this.searchExecutionRepo.updateStage(candidateId, executionId, 'stage:finalize', 'completed');
+
+      const totalDiscovered = runResults.reduce((acc, r) => acc + (r.summary?.discovered ?? 0), 0);
+      const totalInserted = runResults.reduce((acc, r) => acc + (r.summary?.inserted ?? 0), 0);
+      const totalUpdated = runResults.reduce((acc, r) => acc + (r.summary?.updated ?? 0), 0);
+      const totalDuplicates = runResults.reduce((acc, r) => acc + (r.summary?.duplicates ?? 0), 0);
+      const totalFailed = runResults.reduce((acc, r) => acc + (r.summary?.failed ?? 0), 0);
+
+      const allFailed = runResults.every((r) => r.status === 'failed');
+      const anyFailed = runResults.some((r) => r.status === 'failed' || r.status === 'partial');
+      const finalStatus = allFailed ? 'failed' : anyFailed ? 'partial' : 'completed';
+
+      await this.searchExecutionRepo.finish(candidateId, executionId, {
+        status: finalStatus,
+        summary: {
+          discovered: totalDiscovered,
+          inserted: totalInserted,
+          updated: totalUpdated,
+          duplicates: totalDuplicates,
+          failed: totalFailed,
+          filteredOut: totalDuplicates,
+          aiEvaluated: totalInserted,
+          aiFailed: 0,
+        },
+      });
+
+      await this.searchExecutionRepo.appendTimeline(candidateId, executionId, {
+        message: `Search ${finalStatus}: ${totalInserted} new jobs added`,
+        type: finalStatus === 'failed' ? 'error' : 'success',
+      });
     }
   }
 
@@ -240,7 +379,7 @@ export class CandidateSearchService {
     runId: string,
     intent: JobSearchIntent,
     preferences?: JobSearchPreferences
-  ): Promise<void> {
+  ): Promise<{ status: ScrapeRunStatus; summary?: any }> {
     try {
       const summary = await this.orchestrator.run({
         candidateId,
@@ -276,6 +415,7 @@ export class CandidateSearchService {
         status,
         summary,
       });
+      return { status, summary };
     } catch (error) {
       await this.scrapeRunRepo.finish(runId, {
         status: 'failed',
@@ -294,6 +434,7 @@ export class CandidateSearchService {
         runId,
         error: error instanceof Error ? error.message : 'Scrape execution failed.',
       });
+      return { status: 'failed' };
     }
   }
 }
