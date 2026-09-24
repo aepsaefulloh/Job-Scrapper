@@ -592,6 +592,7 @@ export type Database = {
           keyword: string | null
           location: string | null
           metadata: Json
+          search_execution_id: string | null
           source: string
           started_at: string
           status: string
@@ -611,6 +612,7 @@ export type Database = {
           keyword?: string | null
           location?: string | null
           metadata?: Json
+          search_execution_id?: string | null
           source: string
           started_at?: string
           status: string
@@ -630,6 +632,7 @@ export type Database = {
           keyword?: string | null
           location?: string | null
           metadata?: Json
+          search_execution_id?: string | null
           source?: string
           started_at?: string
           status?: string
@@ -638,6 +641,72 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "scrape_runs_candidate_id_fkey"
+            columns: ["candidate_id"]
+            isOneToOne: false
+            referencedRelation: "candidates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "scrape_runs_search_execution_id_fkey"
+            columns: ["search_execution_id"]
+            isOneToOne: false
+            referencedRelation: "search_executions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      search_executions: {
+        Row: {
+          candidate_id: string
+          created_at: string
+          error_code: string | null
+          error_message: string | null
+          finished_at: string | null
+          id: string
+          intents_snapshot: Json
+          preferences_snapshot: Json
+          stages: Json
+          started_at: string
+          status: string
+          summary: Json
+          timeline: Json
+          trigger: string
+        }
+        Insert: {
+          candidate_id: string
+          created_at?: string
+          error_code?: string | null
+          error_message?: string | null
+          finished_at?: string | null
+          id?: string
+          intents_snapshot?: Json
+          preferences_snapshot?: Json
+          stages?: Json
+          started_at?: string
+          status: string
+          summary?: Json
+          timeline?: Json
+          trigger?: string
+        }
+        Update: {
+          candidate_id?: string
+          created_at?: string
+          error_code?: string | null
+          error_message?: string | null
+          finished_at?: string | null
+          id?: string
+          intents_snapshot?: Json
+          preferences_snapshot?: Json
+          stages?: Json
+          started_at?: string
+          status?: string
+          summary?: Json
+          timeline?: Json
+          trigger?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "search_executions_candidate_id_fkey"
             columns: ["candidate_id"]
             isOneToOne: false
             referencedRelation: "candidates"
