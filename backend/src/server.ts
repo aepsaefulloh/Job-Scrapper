@@ -37,6 +37,7 @@ import { SupabaseSearchPreferencesRepository } from './search/search-preferences
 import { SearchPlanner } from './search/search-planner.js';
 
 import { CandidateSearchService } from './search/candidate-search.service.js';
+import { SupabaseSearchExecutionRepository } from './search/search-execution.repository.js';
 
 const env = loadEnv(process.env); const logger = new StructuredLogger();
 function createEmbeddingRunner(accessToken: string, candidateId: string) {
@@ -52,6 +53,7 @@ function createCandidateSearchService(accessToken: string, candidateId?: string)
   const scrapeRunRepo = new SupabaseScrapeRunRepository(client);
   const preferencesRepo = new SupabaseSearchPreferencesRepository(client);
   const searchPreferencesService = new SearchPreferencesService(preferencesRepo);
+  const searchExecutionRepo = new SupabaseSearchExecutionRepository(client);
   const embedding = createEmbeddingRunner(accessToken, candidateId ?? '');
   const orchestrator = new ScraperOrchestrator(
     [
@@ -69,7 +71,8 @@ function createCandidateSearchService(accessToken: string, candidateId?: string)
     scrapeRunRepo,
     orchestrator,
     logger,
-    searchPreferencesService
+    searchPreferencesService,
+    searchExecutionRepo
   );
 }
 async function executeScrape(input: { candidateId: string; source: string; keyword?: string; location?: string; remote?: boolean; maxPages?: number }, accessToken: string) {
@@ -106,6 +109,10 @@ const app = createApp({
   createScrapeRunService: (accessToken) => {
     const client = createUserSupabaseClient(accessToken, env);
     return new ScrapeRunService(new SupabaseScrapeRunRepository(client));
+  },
+  createSearchExecutionRepo: (accessToken) => {
+    const client = createUserSupabaseClient(accessToken, env);
+    return new SupabaseSearchExecutionRepository(client);
   },
 });
 const scheduler = new SchedulerService(new NodeCronDriver(), logger); const scheduledEnabled = env.jobScrapeEnabled || env.jobEmbeddingRecoveryEnabled;

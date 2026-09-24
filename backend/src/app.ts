@@ -53,6 +53,7 @@ export type AppDependencies = {
   };
   createCandidateSearchService?: (accessToken: string) => CandidateSearchService;
   createScrapeRunService?: (accessToken: string) => ScrapeRunService;
+  createSearchExecutionRepo?: (accessToken: string) => import('./search/search-execution.repository.js').SearchExecutionRepository;
   staticDir?: string;
   logger?: Logger;
 };
@@ -181,6 +182,32 @@ export function createApp(dependencies: AppDependencies): Express {
         const limit = req.query.limit ? Number(req.query.limit) : 10;
         const service = dependencies.createScrapeRunService!(res.locals.auth.accessToken);
         const items = await service.list(res.locals.auth.userId, limit);
+        res.json({ items });
+      } catch (error) {
+        next(error);
+      }
+    });
+  }
+
+  if (dependencies.createSearchExecutionRepo) {
+    router.get('/search-runs/:id', authenticate, async (req, res, next) => {
+      try {
+        const repo = dependencies.createSearchExecutionRepo!(res.locals.auth.accessToken);
+        const execution = await repo.getById(res.locals.auth.userId, String(req.params.id));
+        if (!execution) {
+          return void res.status(404).json({ error: { code: 'SEARCH_EXECUTION_NOT_FOUND', message: 'Search execution was not found.' } });
+        }
+        res.json(execution);
+      } catch (error) {
+        next(error);
+      }
+    });
+
+    router.get('/search-runs', authenticate, async (req, res, next) => {
+      try {
+        const limit = req.query.limit ? Number(req.query.limit) : 10;
+        const repo = dependencies.createSearchExecutionRepo!(res.locals.auth.accessToken);
+        const items = await repo.list(res.locals.auth.userId, limit);
         res.json({ items });
       } catch (error) {
         next(error);
