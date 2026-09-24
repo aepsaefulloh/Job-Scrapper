@@ -209,4 +209,93 @@ describe('SupabaseSearchExecutionRepository', () => {
 
     expect(fromMock).toHaveBeenCalledTimes(5);
   });
+
+  it('lists search executions with pagination and filters', async () => {
+    const fromMock = vi.fn();
+    const fakeClient = { from: fromMock } as any;
+    const repo = new SupabaseSearchExecutionRepository(fakeClient);
+
+    const mockRow = {
+      id: 'exec-1',
+      candidate_id: 'cand-1',
+      status: 'completed',
+      trigger: 'manual',
+      started_at: '2026-09-24T10:00:00.000Z',
+      finished_at: '2026-09-24T10:01:00.000Z',
+      preferences_snapshot: { sources: ['jobstreet'] },
+      intents_snapshot: [],
+      stages: [],
+      timeline: [],
+      summary: { discovered: 10, inserted: 5, updated: 0, duplicates: 5, failed: 0, filteredOut: 0, aiEvaluated: 5, aiFailed: 0 },
+      error_code: null,
+      error_message: null,
+      created_at: '2026-09-24T10:00:00.000Z',
+    };
+
+    const mockScrapeRun = {
+      id: 'run-1',
+      search_execution_id: 'exec-1',
+      candidate_id: 'cand-1',
+      source: 'jobstreet',
+      status: 'completed',
+      discovered_count: 10,
+      inserted_count: 5,
+      duplicate_count: 5,
+      failed_count: 0,
+      started_at: '2026-09-24T10:00:00.000Z',
+      finished_at: '2026-09-24T10:00:45.000Z',
+      error_message: null,
+    };
+
+    const queryMock: any = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      order: vi.fn().mockReturnThis(),
+      gte: vi.fn().mockReturnThis(),
+      lte: vi.fn().mockReturnThis(),
+      range: vi.fn().mockResolvedValueOnce({
+        data: [mockRow],
+        count: 1,
+        error: null,
+      }),
+    };
+
+    const scrapeRunsQueryMock: any = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      in: vi.fn().mockReturnThis(),
+      order: vi.fn().mockResolvedValueOnce({
+        data: [mockScrapeRun],
+        error: null,
+      }),
+    };
+
+    fromMock.mockImplementation((table: string) => {
+      if (table === 'search_executions') return queryMock;
+      if (table === 'scrape_runs') return scrapeRunsQueryMock;
+      return {};
+    });
+
+    const result = await repo.list('cand-1', {
+      limit: 10,
+      offset: 0,
+      status: 'completed',
+      trigger: 'manual',
+      from: '2026-09-24T00:00:00.000Z',
+    });
+
+    expect(result.total).toBe(1);
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0].id).toBe('exec-1');
+    expect(result.items[0].sources).toHaveLength(1);
+    expect(result.items[0].sources![0].source).toBe('jobstreet');
+    expect(result.items[0].sources![0].durationMs).toBe(45000);
+
+    expect(queryMock.eq).toHaveBeenCalledWith('candidate_id', 'cand-1');
+    expect(queryMock.eq).toHaveBeenCalledWith('status', 'completed');
+    expect(queryMock.eq).toHaveBeenCalledWith('trigger', 'manual');
+    expect(queryMock.gte).toHaveBeenCalledWith('created_at', '2026-09-24T00:00:00.000Z');
+    expect(queryMock.range).toHaveBeenCalledWith(0, 9);
+  });
 });
+

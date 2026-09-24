@@ -58,6 +58,21 @@ export interface SearchExecutionRecord {
   sources?: SearchExecutionSource[];
 }
 
+export interface SearchExecutionListOptions {
+  limit?: number;
+  offset?: number;
+  status?: string;
+  source?: string;
+  trigger?: 'manual' | 'scheduled';
+  from?: string;
+  to?: string;
+}
+
+export interface SearchExecutionListResult {
+  items: SearchExecutionRecord[];
+  total: number;
+}
+
 export interface SearchExecutionRepository {
   create(input: {
     candidateId: string;
@@ -67,7 +82,7 @@ export interface SearchExecutionRepository {
     initialStages: SearchExecutionStage[];
   }): Promise<SearchExecutionRecord>;
   getById(candidateId: string, id: string): Promise<SearchExecutionRecord | null>;
-  list(candidateId: string, limit?: number): Promise<SearchExecutionRecord[]>;
+  list(candidateId: string, options?: SearchExecutionListOptions | number): Promise<SearchExecutionListResult>;
   updateStage(
     candidateId: string,
     id: string,
@@ -184,19 +199,89 @@ export class SupabaseSearchExecutionRepository implements SearchExecutionReposit
     return record;
   }
 
-  public async list(candidateId: string, limit = 10): Promise<SearchExecutionRecord[]> {
-    const { data, error } = await this.client
-      .from('search_executions')
-      .select('*')
-      .eq('candidate_id', candidateId)
-      .order('created_at', { ascending: false })
-      .limit(limit);
+  public async list(candidateId: string, options?: SearchExecutionListOptions | number): Promise<SearchExecutionListResult> {
+    const opts: SearchExecutionListOptions = typeof options === 'number' ? { limit: options } : options || {};
+    const limit = Math.min(Math.max(opts.limit ?? 20, 1), 100);
+    const offset = Math.max(opts.offset ?? 0, 0);
 
-    if (error || !data) {
-      return [];
+    let query: any = this.client
+      .from('search_executions')
+      .select('*', { count: 'exact' })
+      .eq('candidate_id', candidateId)
+      .order('created_at', { ascending: false });
+
+    if (opts.status) {
+      query = query.eq('status', opts.status);
+    }
+    if (opts.trigger) {
+      query = query.eq('trigger', opts.trigger);
+    }
+    if (opts.from) {
+      query = query.gte('created_at', opts.from);
+    }
+    if (opts.to) {
+      query = query.lte('created_at', opts.to);
     }
 
-    return data.map((row: any) => this.mapRowToRecord(row));
+    const { data, count, error } = await query.range(offset, offset + limit - 1);
+
+    if (error || !data || data.length === 0) {
+      return { items: [], total: count ?? 0 };
+    }
+
+    const executionIds = data.map((row: any) => row.id);
+    const { data: scrapeRuns } = await this.client
+      .from('scrape_runs')
+      .select('*')
+      .eq('candidate_id', candidateId)
+      .in('search_execution_id', executionIds)
+      .order('started_at', { ascending: true });
+
+    const runsByExecutionId = new Map<string, any[]>();
+    for (const run of scrapeRuns ?? []) {
+      const execId = (run as any).search_execution_id;
+      if (!runsByExecutionId.has(execId)) {
+        runsByExecutionId.set(execId, []);
+      }
+      runsByExecutionId.get(execId)!.push(run);
+    }
+
+    let items = data.map((row: any) => {
+      const record = this.mapRowToRecord(row);
+      const runs = runsByExecutionId.get(row.id) ?? [];
+      record.sources = runs.map((run: any) => {
+        let durationMs: number | undefined;
+        if (run.started_at && run.finished_at) {
+          durationMs = new Date(run.finished_at).getTime() - new Date(run.started_at).getTime();
+        }
+        return {
+          source: run.source,
+          status: run.status,
+          discovered: run.discovered_count,
+          inserted: run.inserted_count,
+          duplicates: run.duplicate_count,
+          failed: run.failed_count,
+          durationMs,
+          error: run.error_message,
+        };
+      });
+      return record;
+    });
+
+    if (opts.source) {
+      const srcFilter = opts.source.toLowerCase();
+      items = items.filter((item: SearchExecutionRecord) => {
+        const hasInSources = item.sources?.some((s: SearchExecutionSource) => s.source.toLowerCase() === srcFilter);
+        const prefsSources = (item.preferencesSnapshot?.sources as string[] | undefined) ?? [];
+        const hasInPrefs = prefsSources.some((s: string) => s.toLowerCase() === srcFilter);
+        return hasInSources || hasInPrefs;
+      });
+    }
+
+    return {
+      items,
+      total: count ?? items.length,
+    };
   }
 
   public async updateStage(
