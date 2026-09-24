@@ -23,6 +23,7 @@ import {
   SearchAlreadyRunningError,
   SearchProfileNotReadyError,
 } from './search/candidate-search.service.js';
+import { JOB_SOURCE_REGISTRY } from './search/job-source-registry.js';
 import type { ScrapeRunService } from './scraping/scrape-run.service.js';
 
 export type ProfileServiceType = {
@@ -180,6 +181,10 @@ export function createApp(dependencies: AppDependencies): Express {
       }
     });
   }
+
+  router.get('/job-sources', (_req, res) => {
+    res.json(JOB_SOURCE_REGISTRY);
+  });
 
   if (dependencies.createCandidateSearchService) {
     router.post('/search/run', authenticate, async (req, res, next) => {

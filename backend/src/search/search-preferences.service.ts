@@ -10,6 +10,7 @@ import {
   type UnknownDatePolicy,
   type WorkModePreference,
 } from './preferences-types.js';
+import { getAvailableJobSourceIds } from './job-source-registry.js';
 import type { SearchPreferencesRepository } from './search-preferences.repository.js';
 
 export function normalizeLocation(loc: string): string {
@@ -61,9 +62,10 @@ export class SearchPreferencesService {
       if (!Array.isArray(input.sources)) {
         throw new Error('sources must be an array');
       }
+      const available = getAvailableJobSourceIds();
       for (const s of input.sources) {
-        if (!SUPPORTED_JOB_SOURCES.includes(s as SupportedJobSource)) {
-          throw new Error(`Unsupported job source: "${s}". Supported sources: ${SUPPORTED_JOB_SOURCES.join(', ')}`);
+        if (!available.includes(s)) {
+          throw new Error(`Unsupported job source: "${s}". Supported sources: ${available.join(', ')}`);
         }
       }
       sources = Array.from(new Set(input.sources));
