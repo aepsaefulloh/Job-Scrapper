@@ -1,14 +1,15 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
+import { RouterLink } from 'vue-router';
 import AppLayout from '../layouts/AppLayout.vue';
 import JobFilterBar from '../components/jobs/JobFilterBar.vue';
 import JobRow from '../components/jobs/JobRow.vue';
-import SearchControlCard from '../components/jobs/SearchControlCard.vue';
 import LoadingSkeleton from '../components/common/LoadingSkeleton.vue';
 import EmptyState from '../components/common/EmptyState.vue';
 import ErrorState from '../components/common/ErrorState.vue';
 import { useJobs } from '../composables/useJobs';
 import { useApplications } from '../composables/useApplications';
+import { useMatching } from '../composables/useMatching';
 import type { JobListItem } from '../types/job';
 import {
   ChevronLeft,
@@ -17,11 +18,18 @@ import {
   AlertTriangle,
   Loader2,
   CheckCircle2,
+  Sparkles,
+  Bookmark,
+  Compass,
   X,
 } from 'lucide-vue-next';
 
 const { jobs, total, loading, error, fetchJobs, deleteJob, cleanupJobs } = useJobs();
 const { savedJobIds, saveJob } = useApplications();
+const { recommendations, fetchRecommendations } = useMatching();
+
+type CurationTab = 'curated' | 'saved' | 'recommended' | 'all';
+const activeTab = ref<CurationTab>('curated');
 
 const limit = 20;
 const offset = ref(0);
@@ -46,7 +54,46 @@ async function loadJobs() {
     offset: offset.value,
     ...activeFilters.value,
   });
+
+  if (recommendations.value.length === 0) {
+    try {
+      await fetchRecommendations(50, 0);
+    } catch {
+      // Graceful fallback if matching not available
+    }
+  }
+
+  if (recommendations.value.length > 0) {
+    const scoreMap = new Map(recommendations.value.map((r) => [r.job_id, Math.round(r.rule_score)]));
+    jobs.value = jobs.value.map((j) => ({
+      ...j,
+      matchScore: scoreMap.get(j.id) ?? j.matchScore,
+    }));
+  }
 }
+
+const savedCount = computed(() => jobs.value.filter((j) => savedJobIds.value.has(j.id)).length);
+const recommendedCount = computed(() => jobs.value.filter((j) => (j.matchScore ?? 0) >= 60).length);
+const curatedCount = computed(
+  () => jobs.value.filter((j) => savedJobIds.value.has(j.id) || (j.matchScore !== undefined && j.matchScore >= 50)).length
+);
+
+const displayedJobs = computed(() => {
+  if (activeTab.value === 'saved') {
+    return jobs.value.filter((j) => savedJobIds.value.has(j.id));
+  }
+  if (activeTab.value === 'recommended') {
+    return jobs.value.filter((j) => (j.matchScore ?? 0) >= 60);
+  }
+  if (activeTab.value === 'curated') {
+    const filtered = jobs.value.filter(
+      (j) => savedJobIds.value.has(j.id) || (j.matchScore !== undefined && j.matchScore >= 50)
+    );
+    // If no jobs have been curated/saved yet, show the full list so user doesn't face an empty screen
+    return filtered.length > 0 ? filtered : jobs.value;
+  }
+  return jobs.value;
+});
 
 function handleFilter(filters: { keyword: string; company: string; source: string }) {
   activeFilters.value = filters;
@@ -110,6 +157,14 @@ onMounted(() => {
           </p>
         </div>
         <div class="flex items-center gap-3">
+          <RouterLink
+            to="/scraper"
+            class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-stone-900 rounded-lg hover:bg-stone-800 transition shadow-subtle"
+          >
+            <Compass class="w-3.5 h-3.5 text-stone-300" />
+            <span>Run Scrap</span>
+          </RouterLink>
+
           <button
             type="button"
             @click="showCleanupModal = true"
@@ -150,11 +205,87 @@ onMounted(() => {
         </button>
       </div>
 
-      <!-- Search Control & Scrape Run Status -->
-      <SearchControlCard @search-completed="loadJobs" />
-
       <!-- Filter Bar -->
       <JobFilterBar @filter="handleFilter" />
+
+      <!-- Guidance Banner: Separation of Scraped Batches vs Curated Jobs -->
+      <div class="p-3 bg-stone-50 border border-stone-200 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-stone-600">
+        <div class="flex items-center gap-2">
+          <Sparkles class="w-4 h-4 text-amber-600 shrink-0" />
+          <span>
+            <strong>Pemisahan Data:</strong> Halaman ini mengelola lowongan terkurasi & tersimpan. Lowongan hasil batch scraping mentah disimpan terpisah dan dapat ditinjau di riwayat sesi scraping.
+          </span>
+        </div>
+        <RouterLink
+          to="/search-runs"
+          class="font-semibold text-stone-900 hover:text-stone-700 underline underline-offset-2 shrink-0 flex items-center gap-1"
+        >
+          Riwayat Scraping →
+        </RouterLink>
+      </div>
+
+      <!-- Curation Tabs Filter Bar -->
+      <div class="flex items-center gap-2 border-b border-surface-border pb-1 overflow-x-auto text-xs font-medium">
+        <button
+          type="button"
+          @click="activeTab = 'curated'"
+          class="px-3.5 py-2 rounded-lg transition-colors flex items-center gap-1.5 shrink-0"
+          :class="activeTab === 'curated' ? 'bg-stone-900 text-stone-50 font-semibold' : 'text-stone-600 hover:text-stone-900 hover:bg-stone-100'"
+        >
+          <span>Semua Terkurasi</span>
+          <span
+            class="text-[10px] px-1.5 py-0.2 rounded-full font-mono font-semibold"
+            :class="activeTab === 'curated' ? 'bg-stone-700 text-stone-200' : 'bg-stone-200 text-stone-700'"
+          >
+            {{ curatedCount > 0 ? curatedCount : jobs.length }}
+          </span>
+        </button>
+
+        <button
+          type="button"
+          @click="activeTab = 'saved'"
+          class="px-3.5 py-2 rounded-lg transition-colors flex items-center gap-1.5 shrink-0"
+          :class="activeTab === 'saved' ? 'bg-stone-900 text-stone-50 font-semibold' : 'text-stone-600 hover:text-stone-900 hover:bg-stone-100'"
+        >
+          <span>Tersimpan (Bookmark)</span>
+          <span
+            class="text-[10px] px-1.5 py-0.2 rounded-full font-mono font-semibold"
+            :class="activeTab === 'saved' ? 'bg-stone-700 text-stone-200' : 'bg-stone-200 text-stone-700'"
+          >
+            {{ savedCount }}
+          </span>
+        </button>
+
+        <button
+          type="button"
+          @click="activeTab = 'recommended'"
+          class="px-3.5 py-2 rounded-lg transition-colors flex items-center gap-1.5 shrink-0"
+          :class="activeTab === 'recommended' ? 'bg-stone-900 text-stone-50 font-semibold' : 'text-stone-600 hover:text-stone-900 hover:bg-stone-100'"
+        >
+          <span>Rekomendasi AI</span>
+          <span
+            class="text-[10px] px-1.5 py-0.2 rounded-full font-mono font-semibold"
+            :class="activeTab === 'recommended' ? 'bg-stone-700 text-stone-200' : 'bg-stone-200 text-stone-700'"
+          >
+            {{ recommendedCount }}
+          </span>
+        </button>
+
+        <button
+          type="button"
+          @click="activeTab = 'all'"
+          class="px-3.5 py-2 rounded-lg transition-colors flex items-center gap-1.5 shrink-0"
+          :class="activeTab === 'all' ? 'bg-stone-900 text-stone-50 font-semibold' : 'text-stone-600 hover:text-stone-900 hover:bg-stone-100'"
+        >
+          <span>Semua Database</span>
+          <span
+            class="text-[10px] px-1.5 py-0.2 rounded-full font-mono font-semibold"
+            :class="activeTab === 'all' ? 'bg-stone-700 text-stone-200' : 'bg-stone-200 text-stone-700'"
+          >
+            {{ total }}
+          </span>
+        </button>
+      </div>
 
       <!-- Error State -->
       <ErrorState
@@ -176,10 +307,30 @@ onMounted(() => {
         @action="handleFilter({ keyword: '', company: '', source: '' })"
       />
 
+      <!-- Empty State for specific tab -->
+      <div
+        v-else-if="displayedJobs.length === 0"
+        class="p-8 text-center bg-stone-50 border border-stone-200 rounded-xl space-y-3"
+      >
+        <p class="text-sm font-medium text-stone-800">
+          {{ activeTab === 'saved' ? 'Belum ada lowongan yang disimpan (bookmark).' : activeTab === 'recommended' ? 'Belum ada lowongan dengan rekomendasi AI di halaman ini.' : 'Belum ada lowongan terkurasi di halaman ini.' }}
+        </p>
+        <p class="text-xs text-stone-500 max-w-md mx-auto">
+          Anda dapat meninjau semua lowongan di tab "Semua Database" atau simpan lowongan dari hasil scraping di Riwayat Scraping.
+        </p>
+        <button
+          type="button"
+          @click="activeTab = 'all'"
+          class="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-lg bg-stone-900 text-white hover:bg-stone-800 transition"
+        >
+          Lihat Semua Database
+        </button>
+      </div>
+
       <!-- Jobs List -->
       <div v-else class="space-y-3">
         <JobRow
-          v-for="job in jobs"
+          v-for="job in displayedJobs"
           :key="job.id"
           :job="job"
           :is-saved="savedJobIds.has(job.id)"

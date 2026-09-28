@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue';
-import { X, Plus, AlertCircle, Loader2, Check } from 'lucide-vue-next';
+import { RouterLink } from 'vue-router';
+import { X, Plus, AlertCircle, Loader2, Check, Play, Briefcase } from 'lucide-vue-next';
 import SourceMultiSelect from './SourceMultiSelect.vue';
 import type {
   JobSearchPreferences,
@@ -10,15 +11,27 @@ import type {
   UnknownDatePolicy,
 } from '../../types/search-preferences';
 
-const props = defineProps<{
-  modelValue: boolean;
-  preferences: JobSearchPreferences;
-  saving?: boolean;
-}>();
+const props = withDefaults(
+  defineProps<{
+    modelValue: boolean;
+    preferences: JobSearchPreferences;
+    saving?: boolean;
+    triggering?: boolean;
+    targetRoles?: string[];
+    mode?: 'edit' | 'confirm_search';
+  }>(),
+  {
+    saving: false,
+    triggering: false,
+    targetRoles: () => [],
+    mode: 'edit',
+  }
+);
 
 const emit = defineEmits<{
   (e: 'update:modelValue', value: boolean): void;
   (e: 'save', preferences: JobSearchPreferences): void;
+  (e: 'save-and-search', preferences: JobSearchPreferences): void;
 }>();
 
 const formSources = ref<SupportedJobSource[]>(['jobstreet', 'loker-id']);
@@ -101,21 +114,35 @@ function close() {
   emit('update:modelValue', false);
 }
 
-function submit() {
+function getFormPayload(): JobSearchPreferences | null {
   if (formSources.value.length === 0) {
     validationError.value = 'At least one search source must be enabled.';
-    return;
+    return null;
   }
   validationError.value = null;
 
-  emit('save', {
+  return {
     sources: formSources.value,
     locations: formLocations.value,
     workModes: formWorkModes.value,
     employmentTypes: formEmploymentTypes.value,
     maxPostingAgeDays: Number(formMaxPostingAgeDays.value),
     unknownPostingDatePolicy: formUnknownPostingDatePolicy.value,
-  });
+  };
+}
+
+function submit() {
+  const payload = getFormPayload();
+  if (payload) {
+    emit('save', payload);
+  }
+}
+
+function submitAndSearch() {
+  const payload = getFormPayload();
+  if (payload) {
+    emit('save-and-search', payload);
+  }
 }
 </script>
 
@@ -132,9 +159,15 @@ function submit() {
       <!-- Header -->
       <div class="flex items-center justify-between px-5 py-4 border-b border-surface-border">
         <div>
-          <h3 class="text-sm font-bold text-stone-900">Job Search Preferences</h3>
+          <h3 class="text-sm font-bold text-stone-900">
+            {{ mode === 'confirm_search' ? 'Konfirmasi Target & Mulai Scraping' : 'Job Search Preferences' }}
+          </h3>
           <p class="text-xs text-stone-500 mt-0.5">
-            Configure agent search portals, target locations, and posting freshness.
+            {{
+              mode === 'confirm_search'
+                ? 'Pilih portal kerja, lokasi target, dan batas waktu sebelum scraping dijalankan.'
+                : 'Configure agent search portals, target locations, and posting freshness.'
+            }}
           </p>
         </div>
         <button
@@ -155,6 +188,28 @@ function submit() {
         >
           <AlertCircle class="w-4 h-4 text-rose-600 shrink-0" />
           <span>{{ validationError }}</span>
+        </div>
+
+        <!-- Target Roles Summary Banner -->
+        <div v-if="targetRoles && targetRoles.length > 0" class="p-3 rounded-lg bg-stone-50 border border-stone-200/80">
+          <div class="flex items-center justify-between mb-1.5">
+            <span class="text-[10px] font-bold uppercase tracking-wider text-stone-500 flex items-center gap-1.5">
+              <Briefcase class="w-3 h-3 text-stone-400" />
+              Target Role & Keyword (Profil)
+            </span>
+            <RouterLink to="/profile" class="text-[10px] text-brand-700 hover:underline">
+              Ubah di Profil →
+            </RouterLink>
+          </div>
+          <div class="flex flex-wrap gap-1">
+            <span
+              v-for="role in targetRoles"
+              :key="role"
+              class="px-2 py-0.5 rounded text-[11px] font-medium bg-white border border-stone-200 text-stone-800"
+            >
+              {{ role }}
+            </span>
+          </div>
         </div>
 
         <!-- 1. Search Sources -->
@@ -303,23 +358,51 @@ function submit() {
       </div>
 
       <!-- Footer Actions -->
-      <div class="flex items-center justify-end gap-2 px-5 py-3 border-t border-surface-border bg-stone-50/50">
+      <div class="flex items-center justify-between gap-2 px-5 py-3 border-t border-surface-border bg-stone-50/50">
         <button
           type="button"
           @click="close"
           class="px-3.5 py-1.5 rounded-lg border border-stone-200 text-xs font-medium text-stone-600 hover:bg-stone-100 transition-colors"
         >
-          Cancel
+          {{ mode === 'confirm_search' ? 'Batal' : 'Cancel' }}
         </button>
-        <button
-          type="button"
-          :disabled="saving"
-          @click="submit"
-          class="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-brand-700 text-white text-xs font-semibold hover:bg-brand-800 disabled:opacity-50 transition-colors shadow-sm"
-        >
-          <Loader2 v-if="saving" class="w-3.5 h-3.5 animate-spin" />
-          <span>{{ saving ? 'Saving...' : 'Save Preferences' }}</span>
-        </button>
+
+        <div class="flex items-center gap-2">
+          <!-- Optional save-only button in confirm mode -->
+          <button
+            v-if="mode === 'confirm_search'"
+            type="button"
+            :disabled="saving || triggering"
+            @click="submit"
+            class="px-3 py-1.5 rounded-lg border border-stone-200 bg-white text-xs font-medium text-stone-700 hover:bg-stone-50 transition-colors"
+          >
+            {{ saving ? 'Menyimpan...' : 'Simpan Target Saja' }}
+          </button>
+
+          <!-- Primary Save button for normal edit mode -->
+          <button
+            v-if="mode === 'edit'"
+            type="button"
+            :disabled="saving"
+            @click="submit"
+            class="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg border border-stone-300 bg-white text-stone-800 text-xs font-semibold hover:bg-stone-50 disabled:opacity-50 transition-colors shadow-2xs"
+          >
+            <Loader2 v-if="saving" class="w-3.5 h-3.5 animate-spin" />
+            <span>{{ saving ? 'Saving...' : 'Save Preferences' }}</span>
+          </button>
+
+          <!-- Primary Start Scraping button (present in both, prominent in confirm_search) -->
+          <button
+            type="button"
+            :disabled="saving || triggering"
+            @click="submitAndSearch"
+            class="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-brand-700 text-white text-xs font-semibold hover:bg-brand-800 disabled:opacity-50 transition-colors shadow-sm"
+          >
+            <Loader2 v-if="saving || triggering" class="w-3.5 h-3.5 animate-spin" />
+            <Play v-else class="w-3.5 h-3.5 fill-current" />
+            <span>{{ triggering ? 'Menjalankan...' : (mode === 'confirm_search' ? 'Konfirmasi & Mulai Scraping' : 'Save & Start Search') }}</span>
+          </button>
+        </div>
       </div>
     </div>
   </div>

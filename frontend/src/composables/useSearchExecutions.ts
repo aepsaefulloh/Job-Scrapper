@@ -111,6 +111,30 @@ export function useSearchExecutions() {
     await fetchExecutions();
   }
 
+  async function deleteExecution(id: string): Promise<boolean> {
+    try {
+      await apiClient.delete<{ success: boolean; id: string }>(`/search-runs/${id}`);
+      executions.value = executions.value.filter((e) => e.id !== id);
+      total.value = Math.max(0, total.value - 1);
+      return true;
+    } catch (e: any) {
+      error.value = e?.message || 'Failed to delete search execution.';
+      return false;
+    }
+  }
+
+  async function clearAllExecutions(): Promise<boolean> {
+    try {
+      await apiClient.delete<{ success: boolean; deletedCount: number }>(`/search-runs`);
+      executions.value = [];
+      total.value = 0;
+      return true;
+    } catch (e: any) {
+      error.value = e?.message || 'Failed to clear search executions.';
+      return false;
+    }
+  }
+
   return {
     executions,
     total,
@@ -123,6 +147,8 @@ export function useSearchExecutions() {
     fetchExecutions,
     setFilter,
     setPage,
+    deleteExecution,
+    clearAllExecutions,
     formatDuration,
   };
 }

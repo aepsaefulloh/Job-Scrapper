@@ -12,12 +12,14 @@ import type {
   SearchExecutionRepository,
   SearchExecutionRecord,
   SearchExecutionStage,
+  SearchExecutionJobResult,
 } from './search-execution.repository.js';
 import { buildSearchIdentity, normalizeScheduledSearch } from '../scheduler/scheduled-scrape-task.js';
 import { getJobSourceDefinition, isJobSourceAvailable } from './job-source-registry.js';
 import type {
   RecommendationPipeline,
   CandidateJobInput,
+  RecommendationOutputItem,
 } from '../matching/recommendation-pipeline.js';
 
 export class SearchProfileNotReadyError extends Error {
@@ -340,6 +342,8 @@ export class CandidateSearchService {
         aiCacheMisses: 0,
         recommendationsProduced: 0,
       };
+      let jobsToEvaluate: CandidateJobInput[] = [];
+      let batchRecommendations: RecommendationOutputItem[] = [];
 
       if (this.recommendationPipeline && this.jobService) {
         try {
@@ -354,7 +358,6 @@ export class CandidateSearchService {
             ),
           ];
 
-          let jobsToEvaluate: CandidateJobInput[] = [];
           if (collectedJobIds.length > 0) {
             const loaded = await Promise.all(
               collectedJobIds.map((id) => this.jobService!.detail(candidateId, id))
@@ -413,6 +416,8 @@ export class CandidateSearchService {
             jobs: jobsToEvaluate,
             preferences,
           });
+
+          batchRecommendations = evalResult.recommendations;
 
           evalMetrics = {
             afterDeterministicFilters: evalResult.metrics.afterDeterministicFilters,
@@ -478,6 +483,24 @@ export class CandidateSearchService {
       const anyFailed = runResults.some((r) => r.status === 'failed' || r.status === 'partial');
       const finalStatus = allFailed ? 'failed' : anyFailed ? 'partial' : 'completed';
 
+      const recMap = new Map(batchRecommendations.map((r) => [r.jobId, r]));
+      const executionResults: SearchExecutionJobResult[] = jobsToEvaluate.map((j: any) => {
+        const rec = recMap.get(j.id);
+        return {
+          jobId: j.id,
+          title: j.title,
+          company: j.companyName || j.company || 'Unknown',
+          source: j.source,
+          location: j.location,
+          publishedAt: j.publishedAt,
+          score: rec?.score,
+          recommendation: rec?.recommendation,
+          summary: rec?.summary,
+          strengths: rec?.strengths,
+          gaps: rec?.gaps,
+        };
+      });
+
       await this.searchExecutionRepo.finish(candidateId, executionId, {
         status: finalStatus,
         summary: {
@@ -495,6 +518,7 @@ export class CandidateSearchService {
           recommendationsProduced: evalMetrics.recommendationsProduced,
           aiEvaluated: evalMetrics.recommendationsProduced || totalInserted,
           aiFailed: 0,
+          results: executionResults,
         },
       });
 

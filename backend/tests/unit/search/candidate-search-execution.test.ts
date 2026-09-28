@@ -164,4 +164,83 @@ describe('CandidateSearchService with SearchExecutionRepository', () => {
       })
     );
   });
+
+  it('attaches batch job results to search execution summary upon finish', async () => {
+    orchestrator.run.mockResolvedValueOnce({
+      discovered: 2,
+      inserted: 1,
+      updated: 0,
+      duplicates: 1,
+      failed: 0,
+      jobIds: ['job-abc'],
+    });
+
+    const mockJobService = {
+      detail: vi.fn().mockResolvedValue({
+        id: 'job-abc',
+        title: 'Backend Engineer',
+        company_name: 'Acme Corp',
+        source: 'jobstreet',
+        location: 'Jakarta',
+      }),
+      list: vi.fn(),
+    };
+
+    const mockPipeline = {
+      evaluateBatch: vi.fn().mockResolvedValue({
+        recommendations: [
+          {
+            jobId: 'job-abc',
+            score: 85,
+            recommendation: 'Strong Match',
+            summary: 'Great fit for requirements',
+          },
+        ],
+        metrics: {
+          scrapedOrDiscovered: 2,
+          afterDeterministicFilters: 1,
+          consideredForMatching: 1,
+          jobsSentToLlm: 1,
+          aiCacheHits: 0,
+          aiCacheMisses: 1,
+          recommendationsProduced: 1,
+        },
+      }),
+    };
+
+    const service = new CandidateSearchService(
+      searchProfileService,
+      profileRepo,
+      searchPlanner,
+      scrapeRunRepo,
+      orchestrator,
+      undefined, // logger
+      searchPreferencesService,
+      searchExecutionRepo,
+      mockPipeline as any,
+      mockJobService as any
+    );
+
+    await service.runManualSearch('cand-1', { maxPages: 1 });
+    await new Promise((r) => setTimeout(r, 60));
+
+    expect(searchExecutionRepo.finish).toHaveBeenCalledWith(
+      'cand-1',
+      'exec-123',
+      expect.objectContaining({
+        status: 'completed',
+        summary: expect.objectContaining({
+          results: expect.arrayContaining([
+            expect.objectContaining({
+              jobId: 'job-abc',
+              title: 'Backend Engineer',
+              company: 'Acme Corp',
+              score: 85,
+              recommendation: 'Strong Match',
+            }),
+          ]),
+        }),
+      })
+    );
+  });
 });

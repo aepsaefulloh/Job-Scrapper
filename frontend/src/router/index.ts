@@ -21,6 +21,12 @@ const routes: RouteRecordRaw[] = [
     meta: { requiresAuth: true },
   },
   {
+    path: '/scraper',
+    name: 'scraper',
+    component: () => import('../views/ScraperView.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
     path: '/jobs/:id',
     name: 'job-detail',
     component: () => import('../views/JobDetailView.vue'),

@@ -17,6 +17,21 @@ export interface SearchExecutionTimelineEvent {
   type?: 'info' | 'success' | 'warning' | 'error';
 }
 
+export interface SearchExecutionJobResult {
+  jobId: string;
+  title: string;
+  company: string;
+  source: string;
+  location?: string;
+  jobUrl?: string;
+  publishedAt?: string;
+  score?: number;
+  recommendation?: string;
+  summary?: string;
+  strengths?: string[];
+  gaps?: string[];
+}
+
 export interface SearchExecutionSummary {
   discovered: number;
   inserted: number;
@@ -32,6 +47,7 @@ export interface SearchExecutionSummary {
   recommendationsProduced?: number;
   aiEvaluated: number;
   aiFailed: number;
+  results?: SearchExecutionJobResult[];
 }
 
 export interface SearchExecutionSource {
@@ -57,6 +73,7 @@ export interface SearchExecutionRecord {
   stages: SearchExecutionStage[];
   timeline: SearchExecutionTimelineEvent[];
   summary: SearchExecutionSummary;
+  results?: SearchExecutionJobResult[];
   errorCode?: string | null;
   errorMessage?: string | null;
   createdAt: string;

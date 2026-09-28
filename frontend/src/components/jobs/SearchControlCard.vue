@@ -53,6 +53,7 @@ const {
 
 const showHistory = ref(false);
 const showPreferencesModal = ref(false);
+const modalMode = ref<'edit' | 'confirm_search'>('confirm_search');
 
 const hasUsableProfile = computed(() => {
   return !!searchProfile.value && searchProfile.value.targetRoles.length > 0;
@@ -133,6 +134,16 @@ function formatDate(isoString: string): string {
 
 const router = useRouter();
 
+function openConfirmSearchModal() {
+  modalMode.value = 'confirm_search';
+  showPreferencesModal.value = true;
+}
+
+function openEditPreferencesModal() {
+  modalMode.value = 'edit';
+  showPreferencesModal.value = true;
+}
+
 async function handleSearch() {
   const result = await triggerSearch({ maxPages: 1 });
   if (result) {
@@ -147,6 +158,22 @@ async function handleSavePreferences(updated: JobSearchPreferences) {
   try {
     await updatePreferences(updated);
     showPreferencesModal.value = false;
+  } catch {
+    // handled by composable error ref
+  }
+}
+
+async function handleConfirmAndSearch(updated: JobSearchPreferences) {
+  try {
+    await updatePreferences(updated);
+    const result = await triggerSearch({ maxPages: 1 });
+    showPreferencesModal.value = false;
+    if (result) {
+      emit('search-completed');
+      if (result.id && router) {
+        router.push(`/search-runs/${result.id}`);
+      }
+    }
   } catch {
     // handled by composable error ref
   }
@@ -217,12 +244,13 @@ onMounted(async () => {
         <button
           type="button"
           :disabled="isRunning || triggering || !hasUsableProfile || profileLoading"
-          @click="handleSearch"
+          @click="openConfirmSearchModal"
           class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-brand-700 text-white shadow-sm hover:bg-brand-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          data-test="search-jobs-btn"
         >
           <Loader2 v-if="triggering || isRunning" class="w-3.5 h-3.5 animate-spin" />
-          <Play v-else class="w-3.5 h-3.5 fill-current" />
-          <span>{{ isRunning ? 'Searching...' : 'Search Jobs Now' }}</span>
+          <SlidersHorizontal v-else class="w-3.5 h-3.5" />
+          <span>{{ isRunning ? 'Searching...' : 'Pilih Target & Mulai Scraping' }}</span>
         </button>
       </div>
     </div>
@@ -256,7 +284,7 @@ onMounted(async () => {
         </div>
         <button
           type="button"
-          @click="showPreferencesModal = true"
+          @click="openEditPreferencesModal"
           class="inline-flex items-center gap-1 text-[11px] font-semibold text-brand-700 hover:text-brand-800 bg-white border border-brand-200 hover:border-brand-300 px-2.5 py-1 rounded-lg transition-colors shadow-2xs"
         >
           <span>Edit Preferences</span>
@@ -570,12 +598,16 @@ onMounted(async () => {
       </div>
     </div>
 
-    <!-- Edit Preferences Modal -->
+    <!-- Edit Preferences / Target Confirmation Modal -->
     <SearchPreferencesModal
       v-model="showPreferencesModal"
       :preferences="preferences"
       :saving="prefsSaving"
+      :triggering="triggering"
+      :target-roles="searchProfile?.targetRoles || []"
+      :mode="modalMode"
       @save="handleSavePreferences"
+      @save-and-search="handleConfirmAndSearch"
     />
   </div>
 </template>

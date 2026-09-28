@@ -118,4 +118,31 @@ describe('SearchPreferencesModal', () => {
     expect(wrapper.emitted('update:modelValue')).toBeTruthy();
     expect(wrapper.emitted('update:modelValue')![0]).toEqual([false]);
   });
+
+  it('renders in confirm_search mode and emits save-and-search when confirmed', async () => {
+    const wrapper = mount(SearchPreferencesModal, {
+      props: {
+        modelValue: true,
+        preferences: defaultPrefs,
+        mode: 'confirm_search',
+        targetRoles: ['Frontend Engineer'],
+      },
+      global: {
+        stubs: {
+          RouterLink: { template: '<a><slot /></a>' },
+        },
+      },
+    });
+
+    expect(wrapper.text()).toContain('Konfirmasi Target & Mulai Scraping');
+    expect(wrapper.text()).toContain('Frontend Engineer');
+
+    const confirmBtn = wrapper.findAll('button').find((b) => b.text().includes('Konfirmasi & Mulai Scraping'));
+    expect(confirmBtn).toBeDefined();
+    await confirmBtn!.trigger('click');
+
+    expect(wrapper.emitted('save-and-search')).toBeTruthy();
+    const payload = wrapper.emitted('save-and-search')![0][0] as JobSearchPreferences;
+    expect(payload.sources).toEqual(['jobstreet', 'loker-id']);
+  });
 });

@@ -159,7 +159,7 @@ describe('SearchControlCard', () => {
     const wrapper = mount(SearchControlCard);
 
     expect(wrapper.text()).toContain('Job Discovery Agent');
-    expect(wrapper.text()).toContain('Search Jobs Now');
+    expect(wrapper.text()).toContain('Pilih Target & Mulai Scraping');
     expect(wrapper.text()).toContain('Frontend Engineer');
     expect(wrapper.text()).toContain('Vue Developer');
     expect(wrapper.text()).toContain('Jakarta');
@@ -171,12 +171,22 @@ describe('SearchControlCard', () => {
     expect(wrapper.text()).toContain('+11 new'); // Loker.id new
   });
 
-  it('triggers search when button is clicked and redirects to /search-runs/:id', async () => {
+  it('opens confirmation modal on search button click, then triggers search upon confirmation and redirects', async () => {
     mockTriggerSearch.mockResolvedValueOnce({ id: 'exec-123', status: 'running' });
     const wrapper = mount(SearchControlCard);
 
-    const button = wrapper.find('button');
-    await button.trigger('click');
+    // Click the main action button
+    const searchBtn = wrapper.find('button[data-test="search-jobs-btn"]');
+    expect(searchBtn.exists()).toBe(true);
+    await searchBtn.trigger('click');
+
+    // Modal is now open in confirm_search mode
+    expect(wrapper.text()).toContain('Konfirmasi Target & Mulai Scraping');
+
+    // User confirms and starts scraping
+    const confirmBtn = wrapper.findAll('button').find((b) => b.text().includes('Konfirmasi & Mulai Scraping'));
+    expect(confirmBtn).toBeDefined();
+    await confirmBtn!.trigger('click');
 
     expect(mockTriggerSearch).toHaveBeenCalledWith({ maxPages: 1 });
     expect(mockPush).toHaveBeenCalledWith('/search-runs/exec-123');

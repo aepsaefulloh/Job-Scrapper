@@ -21,6 +21,8 @@ const mockFilters = ref<SearchExecutionFilters>({
 const mockFetchExecutions = vi.fn();
 const mockSetFilter = vi.fn();
 const mockSetPage = vi.fn();
+const mockDeleteExecution = vi.fn().mockResolvedValue(true);
+const mockClearAllExecutions = vi.fn().mockResolvedValue(true);
 const mockFormatDuration = (secs: number) => `${secs}s`;
 
 vi.mock('vue-router', () => ({
@@ -55,6 +57,8 @@ vi.mock('../../composables/useSearchExecutions', () => ({
     setFilter: mockSetFilter,
     setPage: mockSetPage,
     formatDuration: mockFormatDuration,
+    deleteExecution: mockDeleteExecution,
+    clearAllExecutions: mockClearAllExecutions,
   }),
 }));
 
@@ -207,5 +211,37 @@ describe('SearchHistoryView', () => {
     await nextButton.trigger('click');
 
     expect(mockSetPage).toHaveBeenCalledWith(2);
+  });
+
+  it('triggers deleteExecution when delete button is clicked', async () => {
+    mockExecutions.value = [sampleCompletedRun];
+    mockTotal.value = 1;
+
+    const wrapper = mountView();
+
+    const deleteBtn = wrapper.find('button[title="Hapus riwayat sesi ini"]');
+    expect(deleteBtn.exists()).toBe(true);
+    await deleteBtn.trigger('click');
+
+    expect(mockDeleteExecution).toHaveBeenCalledWith('exec-1');
+  });
+
+  it('renders "Bersihkan Semua" button and triggers clearAllExecutions on modal confirm', async () => {
+    mockExecutions.value = [sampleCompletedRun];
+    mockTotal.value = 1;
+
+    const wrapper = mountView();
+
+    const clearAllBtn = wrapper.findAll('button').find(b => b.text().includes('Bersihkan Semua'));
+    expect(clearAllBtn).toBeDefined();
+    await clearAllBtn!.trigger('click');
+
+    // Modal is now visible
+    expect(wrapper.text()).toContain('Bersihkan Riwayat Scraping?');
+    const modalConfirmBtn = wrapper.findAll('button').find(b => b.text().includes('Ya, Hapus Semua'));
+    expect(modalConfirmBtn).toBeDefined();
+
+    await modalConfirmBtn!.trigger('click');
+    expect(mockClearAllExecutions).toHaveBeenCalled();
   });
 });

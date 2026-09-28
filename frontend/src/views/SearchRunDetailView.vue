@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { onMounted, computed } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import { useRoute, useRouter, RouterLink } from 'vue-router';
 import AppLayout from '../layouts/AppLayout.vue';
 import LoadingSkeleton from '../components/common/LoadingSkeleton.vue';
 import EmptyState from '../components/common/EmptyState.vue';
 import { useSearchExecution } from '../composables/useSearchExecution';
+import { useApplications } from '../composables/useApplications';
 import {
   ArrowLeft,
   CheckCircle2,
@@ -17,8 +18,12 @@ import {
   Layers,
   ArrowRight,
   ShieldAlert,
-  Info,
+  Bookmark,
+  ExternalLink,
+  MapPin,
+  Trash2,
 } from 'lucide-vue-next';
+import { apiClient } from '../lib/api';
 
 const route = useRoute();
 const router = useRouter();
@@ -33,6 +38,9 @@ const {
   startPolling,
   formatDuration,
 } = useSearchExecution();
+
+const { savedJobIds, saveJob } = useApplications();
+const savingJobId = ref<string | null>(null);
 
 onMounted(() => {
   if (runId.value) {
@@ -53,6 +61,39 @@ function formatTimestamp(iso: string): string {
     return iso;
   }
 }
+
+async function handleSaveJob(jobId: string) {
+  if (savedJobIds.value.has(jobId)) return;
+  savingJobId.value = jobId;
+  try {
+    await saveJob(jobId);
+  } finally {
+    savingJobId.value = null;
+  }
+}
+
+function getRecommendationClass(rec: string): string {
+  const lower = rec.toLowerCase();
+  if (lower.includes('strong')) return 'bg-emerald-50 text-emerald-800 border-emerald-200';
+  if (lower.includes('recommend') || lower.includes('potential')) return 'bg-blue-50 text-blue-800 border-blue-200';
+  if (lower.includes('borderline')) return 'bg-amber-50 text-amber-800 border-amber-200';
+  return 'bg-stone-100 text-stone-700 border-stone-200';
+}
+
+const deleting = ref(false);
+
+async function handleDeleteThisExecution() {
+  if (!confirm('Apakah Anda yakin ingin menghapus sesi riwayat scraping ini?')) return;
+  deleting.value = true;
+  try {
+    await apiClient.delete(`/search-runs/${runId.value}`);
+    router.push('/search-runs');
+  } catch (err: any) {
+    alert(err?.message || 'Gagal menghapus sesi.');
+  } finally {
+    deleting.value = false;
+  }
+}
 </script>
 
 <template>
@@ -61,16 +102,29 @@ function formatTimestamp(iso: string): string {
       <!-- Breadcrumb & Back Link -->
       <div class="flex items-center justify-between">
         <RouterLink
-          to="/jobs"
+          to="/search-runs"
           class="inline-flex items-center gap-1.5 text-xs text-stone-700 hover:text-stone-900 transition-colors uppercase tracking-wider font-semibold"
         >
           <ArrowLeft class="w-3.5 h-3.5" />
-          Back to Jobs
+          Back to Search History
         </RouterLink>
 
-        <span v-if="execution" class="text-xs font-mono text-stone-600 bg-stone-100 px-2 py-0.5 rounded border border-stone-200">
-          ID: {{ execution.id }}
-        </span>
+        <div v-if="execution" class="flex items-center gap-2">
+          <span class="text-xs font-mono text-stone-600 bg-stone-100 px-2 py-0.5 rounded border border-stone-200">
+            ID: {{ execution.id }}
+          </span>
+          <button
+            type="button"
+            @click="handleDeleteThisExecution"
+            :disabled="deleting"
+            class="inline-flex items-center gap-1 text-xs text-rose-600 hover:text-rose-800 hover:bg-rose-50 px-2 py-0.5 rounded border border-rose-200 transition"
+            title="Hapus riwayat sesi ini"
+          >
+            <Loader2 v-if="deleting" class="w-3 h-3 animate-spin" />
+            <Trash2 v-else class="w-3 h-3" />
+            <span>{{ deleting ? 'Menghapus...' : 'Hapus Sesi' }}</span>
+          </button>
+        </div>
       </div>
 
       <!-- Loading State -->
@@ -221,6 +275,109 @@ function formatTimestamp(iso: string): string {
                 <span class="text-[11px] uppercase tracking-wider text-indigo-800 font-semibold block">Recommendations Ready</span>
                 <span class="text-xl font-serif text-indigo-900 font-normal">{{ execution.summary.recommendationsProduced ?? execution.summary.aiEvaluated }}</span>
               </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Scraped Jobs Found in This Batch -->
+        <div class="bg-white border border-stone-200 rounded-lg p-6 space-y-4 shadow-sm">
+          <div class="flex items-center justify-between border-b border-stone-100 pb-3">
+            <div>
+              <h2 class="text-sm font-semibold text-stone-900 uppercase tracking-wider flex items-center gap-2">
+                <Briefcase class="w-4 h-4 text-stone-600" />
+                Lowongan Hasil Scraping Sesi Ini
+              </h2>
+              <p class="text-xs text-stone-500 mt-0.5">
+                Batch temuan scraper pada sesi ini. Bookmark untuk menyimpan lowongan ke katalog utama Jobs.
+              </p>
+            </div>
+            <span v-if="execution.results && execution.results.length > 0" class="text-xs font-mono font-medium px-2 py-0.5 rounded bg-stone-100 text-stone-700">
+              {{ execution.results.length }} lowongan
+            </span>
+          </div>
+
+          <!-- If currently running and no results yet -->
+          <div v-if="isRunning && (!execution.results || execution.results.length === 0)" class="py-8 text-center space-y-2">
+            <Loader2 class="w-6 h-6 animate-spin text-stone-400 mx-auto" />
+            <p class="text-xs text-stone-600">Sedang mengumpulkan & mengevaluasi lowongan...</p>
+          </div>
+
+          <!-- If completed but no results found -->
+          <div v-else-if="!execution.results || execution.results.length === 0" class="py-6 text-center text-xs text-stone-500 bg-stone-50 rounded-md border border-stone-100">
+            Tidak ada lowongan baru yang dievaluasi pada sesi ini (kemungkinan sudah ada di database atau terfilter usia/kriteria).
+          </div>
+
+          <!-- Job cards list -->
+          <div v-else class="space-y-3">
+            <div
+              v-for="job in execution.results"
+              :key="job.jobId"
+              class="border border-stone-200 rounded-lg p-4 hover:border-stone-300 transition bg-stone-50/40 space-y-2.5"
+            >
+              <div class="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                <div class="space-y-1">
+                  <div class="flex items-center gap-2 flex-wrap">
+                    <span class="text-xs font-semibold text-stone-900">{{ job.title }}</span>
+                    <span class="text-[10px] font-mono uppercase px-1.5 py-0.5 rounded bg-stone-200 text-stone-700">
+                      {{ formatSourceName(job.source) }}
+                    </span>
+                    <span
+                      v-if="job.recommendation"
+                      class="text-[10px] font-semibold px-2 py-0.5 rounded border"
+                      :class="getRecommendationClass(job.recommendation)"
+                    >
+                      {{ job.recommendation }}
+                      <span v-if="job.score !== undefined">({{ job.score }}%)</span>
+                    </span>
+                  </div>
+                  <div class="flex items-center gap-3 text-xs text-stone-600">
+                    <span class="font-medium text-stone-800">{{ job.company }}</span>
+                    <span v-if="job.location" class="flex items-center gap-1 text-stone-500">
+                      <MapPin class="w-3 h-3" />
+                      {{ job.location }}
+                    </span>
+                    <span v-if="job.publishedAt" class="text-stone-400">
+                      {{ job.publishedAt }}
+                    </span>
+                  </div>
+                </div>
+
+                <!-- Action Button: Bookmark / Save -->
+                <div class="flex items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    @click="handleSaveJob(job.jobId)"
+                    :disabled="savedJobIds.has(job.jobId) || savingJobId === job.jobId"
+                    class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition"
+                    :class="
+                      savedJobIds.has(job.jobId)
+                        ? 'bg-emerald-50 text-emerald-800 border border-emerald-200 cursor-default'
+                        : 'bg-white border border-stone-300 text-stone-700 hover:bg-stone-50 hover:border-stone-400 shadow-sm'
+                    "
+                  >
+                    <CheckCircle2 v-if="savedJobIds.has(job.jobId)" class="w-3.5 h-3.5 text-emerald-600" />
+                    <Loader2 v-else-if="savingJobId === job.jobId" class="w-3.5 h-3.5 animate-spin text-stone-500" />
+                    <Bookmark v-else class="w-3.5 h-3.5 text-stone-500" />
+                    <span>{{ savedJobIds.has(job.jobId) ? 'Tersimpan' : 'Simpan ke Jobs' }}</span>
+                  </button>
+
+                  <a
+                    v-if="job.jobUrl"
+                    :href="job.jobUrl"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="p-1.5 text-stone-400 hover:text-stone-700 hover:bg-stone-100 rounded transition"
+                    title="Buka sumber asli lowongan"
+                  >
+                    <ExternalLink class="w-4 h-4" />
+                  </a>
+                </div>
+              </div>
+
+              <!-- AI Matching Summary / Reason if present -->
+              <p v-if="job.summary" class="text-xs text-stone-600 bg-white p-2.5 rounded border border-stone-200/80 leading-relaxed">
+                {{ job.summary }}
+              </p>
             </div>
           </div>
         </div>

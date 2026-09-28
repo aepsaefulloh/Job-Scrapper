@@ -10,6 +10,7 @@ import {
   LogOut,
   Hexagon,
   History,
+  Compass,
 } from 'lucide-vue-next';
 import { useAuth } from '../../composables/useAuth';
 
@@ -20,7 +21,8 @@ const auth = useAuth();
 const navItems = [
   { name: 'Dashboard', path: '/', icon: LayoutDashboard },
   { name: 'Jobs', path: '/jobs', icon: Briefcase },
-  { name: 'Search History', path: '/search-runs', icon: History },
+  { name: 'Run Scrap', path: '/scraper', icon: Compass },
+  { name: 'History Scraping', path: '/search-runs', icon: History },
   { name: 'Applications', path: '/applications', icon: FileText },
   { name: 'Profile', path: '/profile', icon: User },
 ];

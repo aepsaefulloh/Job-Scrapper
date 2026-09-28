@@ -194,4 +194,30 @@ describe('SearchRunDetailView', () => {
     expect(wrapper.text()).toContain('AI evaluation encountered an issue');
     expect(wrapper.text()).toContain('jobs discovered during scraping remain safely saved');
   });
+
+  it('renders scraped batch job results and save button', () => {
+    mockExecution.value = {
+      ...sampleExecution,
+      results: [
+        {
+          jobId: 'job-999',
+          title: 'Senior Nuxt Architect',
+          company: 'Acme Digital',
+          source: 'jobstreet',
+          location: 'Jakarta',
+          score: 92,
+          recommendation: 'Strong Match',
+          summary: 'Superb match for Vue and TypeScript background.',
+        },
+      ],
+    };
+    const wrapper = mountView();
+
+    expect(wrapper.text()).toContain('Lowongan Hasil Scraping Sesi Ini');
+    expect(wrapper.text()).toContain('Senior Nuxt Architect');
+    expect(wrapper.text()).toContain('Acme Digital');
+    expect(wrapper.text()).toContain('Strong Match');
+    expect(wrapper.text()).toContain('(92%)');
+    expect(wrapper.text()).toContain('Simpan ke Jobs');
+  });
 });

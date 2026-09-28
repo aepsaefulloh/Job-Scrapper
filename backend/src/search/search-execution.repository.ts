@@ -18,6 +18,21 @@ export interface SearchExecutionTimelineEvent {
   type?: 'info' | 'success' | 'warning' | 'error';
 }
 
+export interface SearchExecutionJobResult {
+  jobId: string;
+  title: string;
+  company: string;
+  source: string;
+  location?: string;
+  jobUrl?: string;
+  publishedAt?: string;
+  score?: number;
+  recommendation?: string;
+  summary?: string;
+  strengths?: string[];
+  gaps?: string[];
+}
+
 export interface SearchExecutionSummary {
   discovered: number;
   inserted: number;
@@ -33,6 +48,7 @@ export interface SearchExecutionSummary {
   recommendationsProduced?: number;
   aiEvaluated: number;
   aiFailed: number;
+  results?: SearchExecutionJobResult[];
 }
 
 export interface SearchExecutionSource {
@@ -58,6 +74,7 @@ export interface SearchExecutionRecord {
   stages: SearchExecutionStage[];
   timeline: SearchExecutionTimelineEvent[];
   summary: SearchExecutionSummary;
+  results?: SearchExecutionJobResult[];
   errorCode?: string | null;
   errorMessage?: string | null;
   createdAt: string;
@@ -111,6 +128,8 @@ export interface SearchExecutionRepository {
       errorMessage?: string;
     }
   ): Promise<void>;
+  delete(candidateId: string, id: string): Promise<boolean>;
+  clear(candidateId: string): Promise<number>;
 }
 
 export class SupabaseSearchExecutionRepository implements SearchExecutionRepository {
@@ -380,6 +399,45 @@ export class SupabaseSearchExecutionRepository implements SearchExecutionReposit
       .eq('id', id);
   }
 
+  public async delete(candidateId: string, id: string): Promise<boolean> {
+    await this.client
+      .from('scrape_runs')
+      .delete()
+      .eq('candidate_id', candidateId)
+      .eq('search_execution_id', id);
+
+    const { error, count } = await this.client
+      .from('search_executions')
+      .delete({ count: 'exact' })
+      .eq('candidate_id', candidateId)
+      .eq('id', id);
+
+    if (error) {
+      throw new Error(`Failed to delete search execution: ${error.message}`);
+    }
+
+    return (count ?? 0) > 0;
+  }
+
+  public async clear(candidateId: string): Promise<number> {
+    await this.client
+      .from('scrape_runs')
+      .delete()
+      .eq('candidate_id', candidateId)
+      .not('search_execution_id', 'is', null);
+
+    const { error, count } = await this.client
+      .from('search_executions')
+      .delete({ count: 'exact' })
+      .eq('candidate_id', candidateId);
+
+    if (error) {
+      throw new Error(`Failed to clear search executions: ${error.message}`);
+    }
+
+    return count ?? 0;
+  }
+
   private mapRowToRecord(row: any): SearchExecutionRecord {
     return {
       id: row.id,
@@ -402,6 +460,7 @@ export class SupabaseSearchExecutionRepository implements SearchExecutionReposit
         aiEvaluated: 0,
         aiFailed: 0,
       },
+      results: (row.summary as any)?.results || [],
       errorCode: row.error_code,
       errorMessage: row.error_message,
       createdAt: row.created_at,

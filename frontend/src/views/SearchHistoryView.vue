@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted } from 'vue';
+import { ref, onMounted } from 'vue';
 import { useRouter, RouterLink } from 'vue-router';
 import AppLayout from '../layouts/AppLayout.vue';
 import LoadingSkeleton from '../components/common/LoadingSkeleton.vue';
@@ -20,6 +20,10 @@ import {
   ChevronRight,
   History,
   Layers,
+  Compass,
+  Trash2,
+  AlertTriangle,
+  X,
 } from 'lucide-vue-next';
 
 const router = useRouter();
@@ -36,10 +40,57 @@ const {
   fetchExecutions,
   setFilter,
   setPage,
+  deleteExecution,
+  clearAllExecutions,
   formatDuration,
 } = useSearchExecutions();
 
 const { availableSources } = useJobSources();
+
+const showClearModal = ref(false);
+const clearingAll = ref(false);
+const deletingId = ref<string | null>(null);
+const notification = ref<{ message: string; type: 'success' | 'error' } | null>(null);
+
+function showToast(message: string, type: 'success' | 'error' = 'success', duration = 4000) {
+  notification.value = { message, type };
+  setTimeout(() => {
+    if (notification.value?.message === message) {
+      notification.value = null;
+    }
+  }, duration);
+}
+
+async function handleDeleteOne(id: string, e?: Event) {
+  e?.stopPropagation();
+  e?.preventDefault();
+  deletingId.value = id;
+  try {
+    const ok = await deleteExecution(id);
+    if (ok) {
+      showToast('Sesi riwayat scraping berhasil dihapus.');
+    } else {
+      showToast('Gagal menghapus sesi riwayat scraping.', 'error');
+    }
+  } finally {
+    deletingId.value = null;
+  }
+}
+
+async function handleConfirmClearAll() {
+  clearingAll.value = true;
+  try {
+    const ok = await clearAllExecutions();
+    showClearModal.value = false;
+    if (ok) {
+      showToast('Seluruh riwayat scraping berhasil dibersihkan.');
+    } else {
+      showToast('Gagal membersihkan riwayat scraping.', 'error');
+    }
+  } finally {
+    clearingAll.value = false;
+  }
+}
 
 onMounted(async () => {
   await fetchExecutions();
@@ -106,17 +157,64 @@ function calculateDuration(run: SearchExecutionRecord): number {
       </div>
 
       <!-- Page Header -->
-      <div class="border-b border-stone-200 pb-5">
-        <div class="flex items-center gap-2 mb-1 text-stone-600">
-          <History class="w-4 h-4 text-brand-700" />
-          <span class="text-xs font-mono uppercase tracking-widest font-semibold">Activity & Telemetry</span>
+      <div class="border-b border-stone-200 pb-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <div class="flex items-center gap-2 mb-1 text-stone-600">
+            <History class="w-4 h-4 text-brand-700" />
+            <span class="text-xs font-mono uppercase tracking-widest font-semibold">Activity & Telemetry</span>
+          </div>
+          <h1 class="text-2xl font-serif text-stone-900 font-normal">
+            Search History
+          </h1>
+          <p class="text-xs text-stone-600 mt-1 max-w-2xl">
+            Review riwayat sesi scraping, inspeksi hasil temuan batch tiap sumber, dan lacak telemetri AI.
+          </p>
         </div>
-        <h1 class="text-2xl font-serif text-stone-900 font-normal">
-          Search History
-        </h1>
-        <p class="text-xs text-stone-600 mt-1 max-w-2xl">
-          Review previous autonomous job discovery runs, inspect multi-source outcomes, and track AI processing telemetry over time.
-        </p>
+
+        <div class="flex items-center gap-2.5 shrink-0">
+          <button
+            type="button"
+            v-if="total > 0"
+            @click="showClearModal = true"
+            class="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-stone-700 bg-surface border border-surface-border rounded-lg hover:bg-stone-50 hover:text-rose-700 transition shadow-subtle"
+            title="Bersihkan seluruh riwayat sesi scraping"
+          >
+            <Trash2 class="w-3.5 h-3.5 text-stone-400" />
+            <span>Bersihkan Semua</span>
+          </button>
+
+          <RouterLink
+            to="/scraper"
+            class="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-white bg-stone-900 rounded-lg hover:bg-stone-800 transition shadow-subtle shrink-0"
+          >
+            <Compass class="w-3.5 h-3.5 text-stone-300" />
+            <span>Run Scrap Baru</span>
+          </RouterLink>
+        </div>
+      </div>
+
+      <!-- Notification Toast Banner -->
+      <div
+        v-if="notification"
+        class="p-3.5 rounded-xl border flex items-center justify-between gap-3 text-sm transition-all"
+        :class="
+          notification.type === 'success'
+            ? 'bg-emerald-50/70 border-emerald-200 text-emerald-800'
+            : 'bg-rose-50/70 border-rose-200 text-rose-800'
+        "
+      >
+        <div class="flex items-center gap-2">
+          <CheckCircle2 v-if="notification.type === 'success'" class="w-4 h-4 text-emerald-600 flex-shrink-0" />
+          <AlertTriangle v-else class="w-4 h-4 text-rose-600 flex-shrink-0" />
+          <span>{{ notification.message }}</span>
+        </div>
+        <button
+          type="button"
+          @click="notification = null"
+          class="text-stone-400 hover:text-stone-600 p-0.5 rounded transition"
+        >
+          <X class="w-4 h-4" />
+        </button>
       </div>
 
       <!-- Filter Controls Bar -->
@@ -248,13 +346,26 @@ function calculateDuration(run: SearchExecutionRecord): number {
               </div>
             </div>
 
-            <!-- Detail Action Link -->
-            <RouterLink
-              :to="`/search-runs/${run.id}`"
-              class="inline-flex items-center gap-1 text-xs font-semibold text-brand-700 hover:text-brand-900 transition-colors shrink-0"
-            >
-              <span>{{ run.status === 'running' ? 'View Live Progress →' : 'View Run →' }}</span>
-            </RouterLink>
+            <!-- Detail Action Link & Delete Action -->
+            <div class="flex items-center gap-3 shrink-0">
+              <RouterLink
+                :to="`/search-runs/${run.id}`"
+                class="inline-flex items-center gap-1 text-xs font-semibold text-brand-700 hover:text-brand-900 transition-colors"
+              >
+                <span>{{ run.status === 'running' ? 'View Live Progress →' : 'View Run →' }}</span>
+              </RouterLink>
+
+              <button
+                type="button"
+                @click="handleDeleteOne(run.id, $event)"
+                :disabled="deletingId === run.id"
+                class="p-1 text-stone-400 hover:text-rose-600 hover:bg-rose-50 rounded transition"
+                title="Hapus riwayat sesi ini"
+              >
+                <Loader2 v-if="deletingId === run.id" class="w-3.5 h-3.5 animate-spin text-stone-500" />
+                <Trash2 v-else class="w-3.5 h-3.5" />
+              </button>
+            </div>
           </div>
 
           <!-- Middle Row: Source Breakdown & Snapshot Metadata -->
@@ -334,6 +445,48 @@ function calculateDuration(run: SearchExecutionRecord): number {
             class="px-3 py-1.5 border border-stone-200 rounded-md text-stone-700 hover:bg-stone-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
             Next
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Clear History Confirmation Modal -->
+    <div
+      v-if="showClearModal"
+      class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/40 backdrop-blur-sm animate-in fade-in duration-150"
+    >
+      <div
+        class="bg-surface rounded-2xl max-w-md w-full border border-surface-border shadow-xl p-6 space-y-5 animate-in zoom-in-95 duration-150"
+      >
+        <div class="flex items-start gap-4">
+          <div class="w-10 h-10 rounded-xl bg-rose-50 border border-rose-200 text-rose-600 flex items-center justify-center flex-shrink-0">
+            <AlertTriangle class="w-5 h-5" />
+          </div>
+          <div class="space-y-1">
+            <h3 class="text-base font-semibold text-stone-900">Bersihkan Riwayat Scraping?</h3>
+            <p class="text-xs text-stone-500 leading-relaxed">
+              Tindakan ini akan menghapus semua riwayat sesi scraping beserta log scraping terkait. Lowongan yang telah Anda simpan ke katalog <strong>Jobs</strong> tidak akan terpengaruh.
+            </p>
+          </div>
+        </div>
+
+        <div class="flex items-center justify-end gap-3 pt-2">
+          <button
+            type="button"
+            @click="showClearModal = false"
+            :disabled="clearingAll"
+            class="px-4 py-2 text-xs font-medium text-stone-700 hover:bg-stone-100 rounded-lg transition"
+          >
+            Batal
+          </button>
+          <button
+            type="button"
+            @click="handleConfirmClearAll"
+            :disabled="clearingAll"
+            class="inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold text-white bg-rose-600 hover:bg-rose-700 rounded-lg transition shadow-sm disabled:opacity-50"
+          >
+            <Loader2 v-if="clearingAll" class="w-3.5 h-3.5 animate-spin" />
+            <span>{{ clearingAll ? 'Membersihkan...' : 'Ya, Hapus Semua' }}</span>
           </button>
         </div>
       </div>

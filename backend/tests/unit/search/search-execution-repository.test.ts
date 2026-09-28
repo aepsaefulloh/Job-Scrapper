@@ -297,5 +297,58 @@ describe('SupabaseSearchExecutionRepository', () => {
     expect(queryMock.gte).toHaveBeenCalledWith('created_at', '2026-09-24T00:00:00.000Z');
     expect(queryMock.range).toHaveBeenCalledWith(0, 9);
   });
+
+  it('deletes a search execution and its child scrape runs', async () => {
+    const fromMock = vi.fn();
+    const fakeClient = { from: fromMock } as any;
+    const repo = new SupabaseSearchExecutionRepository(fakeClient);
+
+    const deleteRunsMock = {
+      delete: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+    };
+    const deleteExecMock = {
+      delete: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnValueOnce({
+        eq: vi.fn().mockResolvedValueOnce({ count: 1, error: null }),
+      }),
+    };
+
+    fromMock.mockImplementation((table: string) => {
+      if (table === 'scrape_runs') return deleteRunsMock;
+      if (table === 'search_executions') return deleteExecMock;
+      return {};
+    });
+
+    const deleted = await repo.delete('cand-1', 'exec-1');
+    expect(deleted).toBe(true);
+    expect(fromMock).toHaveBeenCalledWith('scrape_runs');
+    expect(fromMock).toHaveBeenCalledWith('search_executions');
+  });
+
+  it('clears all search executions for a candidate', async () => {
+    const fromMock = vi.fn();
+    const fakeClient = { from: fromMock } as any;
+    const repo = new SupabaseSearchExecutionRepository(fakeClient);
+
+    const deleteRunsMock = {
+      delete: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      not: vi.fn().mockResolvedValueOnce({ error: null }),
+    };
+    const deleteExecMock = {
+      delete: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockResolvedValueOnce({ count: 5, error: null }),
+    };
+
+    fromMock.mockImplementation((table: string) => {
+      if (table === 'scrape_runs') return deleteRunsMock;
+      if (table === 'search_executions') return deleteExecMock;
+      return {};
+    });
+
+    const count = await repo.clear('cand-1');
+    expect(count).toBe(5);
+  });
 });
 

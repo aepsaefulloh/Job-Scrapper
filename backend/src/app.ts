@@ -287,6 +287,29 @@ export function createApp(dependencies: AppDependencies): Express {
         next(error);
       }
     });
+
+    router.delete('/search-runs/:id', authenticate, async (req, res, next) => {
+      try {
+        const repo = dependencies.createSearchExecutionRepo!(res.locals.auth.accessToken);
+        const deleted = await repo.delete(res.locals.auth.userId, String(req.params.id));
+        if (!deleted) {
+          return void res.status(404).json({ error: { code: 'SEARCH_EXECUTION_NOT_FOUND', message: 'Search execution was not found.' } });
+        }
+        res.json({ success: true, id: req.params.id });
+      } catch (error) {
+        next(error);
+      }
+    });
+
+    router.delete('/search-runs', authenticate, async (req, res, next) => {
+      try {
+        const repo = dependencies.createSearchExecutionRepo!(res.locals.auth.accessToken);
+        const deletedCount = await repo.clear(res.locals.auth.userId);
+        res.json({ success: true, deletedCount });
+      } catch (error) {
+        next(error);
+      }
+    });
   }
 
   if (dependencies.createJobService) {
