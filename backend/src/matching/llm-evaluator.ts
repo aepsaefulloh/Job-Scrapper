@@ -4,11 +4,37 @@ import type { CandidateMatchContext } from './context/candidate-match-context.js
 import type { JobMatchContext } from './context/job-match-context.js';
 import type { RuleScore } from './scoring/types.js';
 
-export const AI_MATCH_PROMPT_VERSION = 'job-match-v2';
+export const AI_MATCH_PROMPT_VERSION = 'job-match-v3';
+
+export const recommendationCategorySchema = z.enum([
+  'strong_match',
+  'recommended',
+  'potential_match',
+  'low_match',
+  'weak_match',
+]);
+
+export type RecommendationCategory = z.infer<typeof recommendationCategorySchema>;
+
+export function formatRecommendationCategory(category: string): string {
+  switch (category) {
+    case 'strong_match':
+      return 'Strong Match';
+    case 'recommended':
+      return 'Recommended';
+    case 'potential_match':
+      return 'Potential Match';
+    case 'low_match':
+    case 'weak_match':
+      return 'Low Match';
+    default:
+      return 'Potential Match';
+  }
+}
 
 export const conciseAiMatchSchema = z.object({
   score: z.number().int().min(0).max(100),
-  recommendation: z.enum(['strong_match', 'potential_match', 'weak_match']),
+  recommendation: recommendationCategorySchema,
   strengths: z.array(z.string().trim().min(1).max(160)).max(3),
   gaps: z.array(z.string().trim().min(1).max(160)).max(3),
   summary: z.string().trim().min(1).max(280),
@@ -22,7 +48,7 @@ export type AiMatchAnalysis =
   | {
       status: 'ready';
       score: number;
-      recommendation: 'strong_match' | 'potential_match' | 'weak_match';
+      recommendation: RecommendationCategory;
       strengths: string[];
       gaps: string[];
       summary: string;
@@ -43,7 +69,8 @@ export async function evaluateJobMatch(
         messages: [
           {
             role: 'system',
-            content: 'Evaluate job compatibility from the supplied structured facts. Return only the requested concise JSON and do not invent evidence.',
+            content:
+              'You are an expert career evaluation assistant. Objectively evaluate job compatibility based ONLY on the supplied candidate and job facts across any profession (technology, finance, accounting, healthcare, operations, marketing, legal, etc.). Return only concise JSON matching the schema. Do not invent facts.',
           },
           {
             role: 'user',

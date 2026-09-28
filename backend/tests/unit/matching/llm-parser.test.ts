@@ -67,7 +67,7 @@ describe('LLM match evaluator', () => {
     const request = completeJson.mock.calls[0]?.[0] as { messages: Array<{ content: string }> };
     const payload = JSON.parse(request.messages[1]!.content) as Record<string, unknown>;
     expect(payload).toMatchObject({
-      promptVersion: 'job-match-v2',
+      promptVersion: 'job-match-v3',
       candidate: candidateContext,
       job: jobContext,
       ruleScore: { total: 80 },
