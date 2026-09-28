@@ -1,4 +1,15 @@
-export type SupportedJobSource = 'jobstreet' | 'loker-id';
+export type SupportedJobSource =
+  | 'jobstreet'
+  | 'loker-id'
+  | 'dealls'
+  | 'glints'
+  | 'kitalulus'
+  | 'kalibrr'
+  | 'karir'
+  | 'karir-com'
+  | 'indeed'
+  | 'linkedin'
+  | string;
 export type WorkModePreference = 'remote' | 'hybrid' | 'onsite';
 export type EmploymentTypePreference =
   | 'full-time'

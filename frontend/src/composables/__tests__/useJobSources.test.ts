@@ -13,10 +13,20 @@ describe('useJobSources', () => {
     vi.clearAllMocks();
   });
 
-  it('initializes with static fallback sources containing jobstreet, loker-id, dealls, and glints', () => {
+  it('initializes with static fallback sources containing all supported providers', () => {
     const { jobSources, availableSources } = useJobSources();
-    expect(jobSources.value.length).toBeGreaterThanOrEqual(4);
-    expect(availableSources.value.map((s) => s.id)).toEqual(['jobstreet', 'loker-id', 'dealls', 'glints']);
+    expect(jobSources.value.length).toBeGreaterThanOrEqual(9);
+    expect(availableSources.value.map((s) => s.id)).toEqual([
+      'jobstreet',
+      'loker-id',
+      'dealls',
+      'glints',
+      'indeed',
+      'linkedin',
+      'kitalulus',
+      'kalibrr',
+      'karir-com',
+    ]);
   });
 
   it('fetches remote sources and updates reactive state', async () => {

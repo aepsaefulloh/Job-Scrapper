@@ -7,11 +7,11 @@ export const STATIC_FALLBACK_SOURCES: readonly JobSourceDefinition[] = [
   { id: 'loker-id', name: 'Loker.id', available: true, supportsLocation: true, supportsFreshness: true, supportsWorkMode: false, description: 'Indonesian job vacancy network' },
   { id: 'dealls', name: 'Dealls', available: true, supportsLocation: true, supportsFreshness: true, supportsWorkMode: true, description: 'Tech & business jobs in SEA' },
   { id: 'glints', name: 'Glints', available: true, supportsLocation: true, supportsFreshness: true, supportsWorkMode: true, description: 'Career discovery platform' },
-  { id: 'indeed', name: 'Indeed', available: false, supportsLocation: false, supportsFreshness: false, supportsWorkMode: false, description: 'Global job search engine' },
-  { id: 'linkedin', name: 'LinkedIn', available: false, supportsLocation: false, supportsFreshness: false, supportsWorkMode: false, description: 'Professional networking & jobs' },
-  { id: 'kitalulus', name: 'KitaLulus', available: false, supportsLocation: false, supportsFreshness: false, supportsWorkMode: false, description: 'Indonesian workforce portal' },
-  { id: 'kalibrr', name: 'Kalibrr', available: false, supportsLocation: false, supportsFreshness: false, supportsWorkMode: false, description: 'Southeast Asia recruitment platform' },
-  { id: 'karir-com', name: 'Karir.com', available: false, supportsLocation: false, supportsFreshness: false, supportsWorkMode: false, description: 'Indonesian job portal' },
+  { id: 'indeed', name: 'Indeed', available: true, supportsLocation: true, supportsFreshness: true, supportsWorkMode: true, description: 'Global job search engine' },
+  { id: 'linkedin', name: 'LinkedIn', available: true, supportsLocation: true, supportsFreshness: true, supportsWorkMode: true, description: 'Professional networking & jobs' },
+  { id: 'kitalulus', name: 'KitaLulus', available: true, supportsLocation: true, supportsFreshness: true, supportsWorkMode: false, description: 'Indonesian workforce portal' },
+  { id: 'kalibrr', name: 'Kalibrr', available: true, supportsLocation: true, supportsFreshness: true, supportsWorkMode: true, description: 'Southeast Asia recruitment platform' },
+  { id: 'karir-com', name: 'Karir.com', available: true, supportsLocation: true, supportsFreshness: true, supportsWorkMode: false, description: 'Indonesian job portal' },
 ];
 
 const jobSources = ref<JobSourceDefinition[]>([...STATIC_FALLBACK_SOURCES]);

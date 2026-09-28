@@ -49,4 +49,58 @@ describe('ScraperOrchestrator', () => {
     // Embedding should NOT have been called for stale job
     expect(embed).not.toHaveBeenCalled();
   });
+
+  it('orchestrates newly added sources seamlessly (kitalulus, kalibrr, karir, indeed, linkedin)', async () => {
+    const ingest = vi.fn().mockResolvedValue({ rawId: 'raw', jobId: 'job', changed: true, created: true });
+    const embed = vi.fn().mockResolvedValue(undefined);
+
+    const sources = ['kitalulus', 'kalibrr', 'karir', 'indeed', 'linkedin'];
+    const scrapers = sources.map((source) => ({
+      source,
+      search: vi.fn().mockResolvedValue([
+        {
+          source,
+          title: `${source} Engineer`,
+          company: `${source} Corp`,
+          description: 'Great job',
+          jobUrl: `https://${source}.com/jobs/1`,
+          scrapedAt: new Date().toISOString(),
+        },
+      ]),
+    }));
+
+    const orchestrator = new ScraperOrchestrator(scrapers, { ingest }, { embed });
+
+    for (const source of sources) {
+      const summary = await orchestrator.run({
+        candidateId: 'test-candidate',
+        source,
+        query: { keyword: 'developer' },
+      });
+
+      expect(summary.source).toBe(source);
+      expect(summary.discovered).toBe(1);
+      expect(summary.inserted).toBe(1);
+      expect(summary.failed).toBe(0);
+      expect(ingest).toHaveBeenCalledWith(
+        expect.objectContaining({
+          source,
+          payload: expect.objectContaining({ title: `${source} Engineer` }),
+        }),
+        'test-candidate'
+      );
+    }
+  });
+
+  it('rejects unknown sources with UNSUPPORTED_SOURCE error', async () => {
+    const orchestrator = new ScraperOrchestrator([], { ingest: vi.fn() }, { embed: vi.fn() });
+    await expect(
+      orchestrator.run({
+        candidateId: 'c1',
+        source: 'unsupported-portal',
+        query: { keyword: 'test' },
+      })
+    ).rejects.toMatchObject({ code: 'UNSUPPORTED_SOURCE' });
+  });
 });
+

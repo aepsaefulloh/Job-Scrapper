@@ -22,6 +22,11 @@ import { JobstreetScraper } from './scraping/providers/jobstreet/jobstreet.scrap
 import { LokerIdScraper } from './scraping/providers/loker-id/loker-id.scraper.js';
 import { DeallsScraper } from './scraping/providers/dealls/dealls.scraper.js';
 import { GlintsScraper } from './scraping/providers/glints/glints.scraper.js';
+import { KitaLulusScraper } from './scraping/providers/kitalulus/kitalulus.scraper.js';
+import { KalibrrScraper } from './scraping/providers/kalibrr/kalibrr.scraper.js';
+import { KarirScraper } from './scraping/providers/karir/karir.scraper.js';
+import { IndeedScraper } from './scraping/providers/indeed/indeed.scraper.js';
+import { LinkedInScraper } from './scraping/providers/linkedin/linkedin.scraper.js';
 import { ApplicationAssistantService } from './ai/assistant/application-assistant.service.js';
 import { SupabaseApplicationRepository } from './infrastructure/supabase/application-repository.js';
 import { ApplicationService } from './services/application-service.js';
@@ -65,6 +70,11 @@ function createCandidateSearchService(accessToken: string, candidateId?: string)
       new LokerIdScraper(new CamoufoxBrowserService(env.camoufoxExecutablePath)),
       new DeallsScraper(new CamoufoxBrowserService(env.camoufoxExecutablePath), undefined, logger),
       new GlintsScraper(new CamoufoxBrowserService(env.camoufoxExecutablePath), undefined, logger),
+      new KitaLulusScraper(new CamoufoxBrowserService(env.camoufoxExecutablePath), undefined, logger),
+      new KalibrrScraper(new CamoufoxBrowserService(env.camoufoxExecutablePath), undefined, logger),
+      new KarirScraper(new CamoufoxBrowserService(env.camoufoxExecutablePath), undefined, logger),
+      new IndeedScraper(new CamoufoxBrowserService(env.camoufoxExecutablePath), undefined, logger),
+      new LinkedInScraper(new CamoufoxBrowserService(env.camoufoxExecutablePath), undefined, logger),
     ],
     new JobIngestionService(new SupabaseJobRepository(client)),
     embedding,
@@ -99,6 +109,11 @@ async function executeScrape(input: { candidateId: string; source: string; keywo
       new LokerIdScraper(new CamoufoxBrowserService(env.camoufoxExecutablePath)),
       new DeallsScraper(new CamoufoxBrowserService(env.camoufoxExecutablePath), undefined, logger),
       new GlintsScraper(new CamoufoxBrowserService(env.camoufoxExecutablePath), undefined, logger),
+      new KitaLulusScraper(new CamoufoxBrowserService(env.camoufoxExecutablePath), undefined, logger),
+      new KalibrrScraper(new CamoufoxBrowserService(env.camoufoxExecutablePath), undefined, logger),
+      new KarirScraper(new CamoufoxBrowserService(env.camoufoxExecutablePath), undefined, logger),
+      new IndeedScraper(new CamoufoxBrowserService(env.camoufoxExecutablePath), undefined, logger),
+      new LinkedInScraper(new CamoufoxBrowserService(env.camoufoxExecutablePath), undefined, logger),
     ],
     new JobIngestionService(new SupabaseJobRepository(client)),
     embedding,

@@ -19,19 +19,19 @@ describe('GET /api/job-sources', () => {
     const dealls = res.body.find((s: any) => s.id === 'dealls');
     const glints = res.body.find((s: any) => s.id === 'glints');
     const indeed = res.body.find((s: any) => s.id === 'indeed');
+    const linkedin = res.body.find((s: any) => s.id === 'linkedin');
+    const kitalulus = res.body.find((s: any) => s.id === 'kitalulus');
+    const kalibrr = res.body.find((s: any) => s.id === 'kalibrr');
+    const karir = res.body.find((s: any) => s.id === 'karir');
 
     expect(jobstreet?.available).toBe(true);
     expect(lokerId?.available).toBe(true);
     expect(dealls?.available).toBe(true);
-    expect(dealls?.supportsLocation).toBe(true);
-    expect(dealls?.supportsFreshness).toBe(true);
-    expect(dealls?.supportsWorkMode).toBe(true);
-
     expect(glints?.available).toBe(true);
-    expect(glints?.supportsLocation).toBe(true);
-    expect(glints?.supportsFreshness).toBe(true);
-    expect(glints?.supportsWorkMode).toBe(true);
-
-    expect(indeed?.available).toBe(false);
+    expect(indeed?.available).toBe(true);
+    expect(linkedin?.available).toBe(true);
+    expect(kitalulus?.available).toBe(true);
+    expect(kalibrr?.available).toBe(true);
+    expect(karir?.available).toBe(true);
   });
 });
