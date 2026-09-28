@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import type { Logger } from '../logging/logger.interface.js';
 import type { ProfileRepository } from '../infrastructure/supabase/profile-repository.js';
 import type { ScrapeRunRepository, ScrapeRunStatus } from '../scraping/scrape-run.service.js';
@@ -14,6 +15,10 @@ import type {
 } from './search-execution.repository.js';
 import { buildSearchIdentity, normalizeScheduledSearch } from '../scheduler/scheduled-scrape-task.js';
 import { getJobSourceDefinition, isJobSourceAvailable } from './job-source-registry.js';
+import type {
+  RecommendationPipeline,
+  CandidateJobInput,
+} from '../matching/recommendation-pipeline.js';
 
 export class SearchProfileNotReadyError extends Error {
   public readonly code = 'SEARCH_PROFILE_NOT_READY';
@@ -49,7 +54,12 @@ export class CandidateSearchService {
     private readonly orchestrator: ScraperOrchestrator,
     private readonly logger?: Logger,
     private readonly searchPreferencesService?: SearchPreferencesService,
-    private readonly searchExecutionRepo?: SearchExecutionRepository
+    private readonly searchExecutionRepo?: SearchExecutionRepository,
+    private readonly recommendationPipeline?: RecommendationPipeline,
+    private readonly jobService?: {
+      detail(candidateId: string, jobId: string): Promise<any>;
+      list(candidateId: string, query: { limit: number; offset: number }): Promise<{ items: any[]; total: number }>;
+    }
   ) {}
 
   /**
@@ -322,25 +332,139 @@ export class CandidateSearchService {
         type: 'info',
       });
 
-      await this.searchExecutionRepo.updateStage(candidateId, executionId, 'stage:fresh', 'completed');
-      await this.searchExecutionRepo.appendTimeline(candidateId, executionId, {
-        message: 'Freshness & eligibility filtering completed',
-        type: 'info',
-      });
+      let evalMetrics = {
+        afterDeterministicFilters: 0,
+        consideredForMatching: 0,
+        jobsSentToLlm: 0,
+        aiCacheHits: 0,
+        aiCacheMisses: 0,
+        recommendationsProduced: 0,
+      };
 
-      await this.searchExecutionRepo.updateStage(candidateId, executionId, 'stage:ai_matching', 'running');
-      await this.searchExecutionRepo.appendTimeline(candidateId, executionId, {
-        message: 'AI matching evaluation started',
-        isAi: true,
-        type: 'info',
-      });
+      if (this.recommendationPipeline && this.jobService) {
+        try {
+          const candidateProfile = await this.profileRepo.getActiveProfile(candidateId);
+          const profileChecksum = candidateProfile
+            ? createHash('sha256').update(JSON.stringify(candidateProfile)).digest('hex')
+            : candidateId;
 
-      await this.searchExecutionRepo.updateStage(candidateId, executionId, 'stage:ai_matching', 'completed');
-      await this.searchExecutionRepo.appendTimeline(candidateId, executionId, {
-        message: 'AI matching evaluation completed',
-        isAi: true,
-        type: 'success',
-      });
+          const collectedJobIds = [
+            ...new Set(
+              runResults.flatMap((r) => (Array.isArray(r.summary?.jobIds) ? r.summary.jobIds : []))
+            ),
+          ];
+
+          let jobsToEvaluate: CandidateJobInput[] = [];
+          if (collectedJobIds.length > 0) {
+            const loaded = await Promise.all(
+              collectedJobIds.map((id) => this.jobService!.detail(candidateId, id))
+            );
+            jobsToEvaluate = loaded
+              .filter(Boolean)
+              .map((j: any) => ({
+                id: j.id,
+                title: j.title,
+                companyName: j.company_name || j.company,
+                source: j.source,
+                status: j.status ?? 'active',
+                location: j.location,
+                employmentType: j.employment_type || j.employmentType,
+                publishedAt: j.published_at || j.publishedAt,
+                checksum: j.content_checksum || j.id,
+              }));
+          } else {
+            const listRes = await this.jobService.list(candidateId, { limit: 20, offset: 0 });
+            jobsToEvaluate = (listRes.items || []).map((j: any) => ({
+              id: j.id,
+              title: j.title,
+              companyName: j.company_name || j.company,
+              source: j.source,
+              status: j.status ?? 'active',
+              location: j.location,
+              employmentType: j.employment_type || j.employmentType,
+              publishedAt: j.published_at || j.publishedAt,
+              checksum: j.content_checksum || j.id,
+            }));
+          }
+
+          await this.searchExecutionRepo.updateStage(candidateId, executionId, 'stage:fresh', 'running');
+          await this.searchExecutionRepo.updateStage(
+            candidateId,
+            executionId,
+            'stage:fresh',
+            'completed',
+            `${jobsToEvaluate.length} checked for freshness & eligibility`
+          );
+          await this.searchExecutionRepo.appendTimeline(candidateId, executionId, {
+            message: 'Freshness & eligibility filtering completed',
+            type: 'info',
+          });
+
+          await this.searchExecutionRepo.updateStage(candidateId, executionId, 'stage:ai_matching', 'running');
+          await this.searchExecutionRepo.appendTimeline(candidateId, executionId, {
+            message: 'AI matching evaluation started',
+            isAi: true,
+            type: 'info',
+          });
+
+          const evalResult = await this.recommendationPipeline.evaluateBatch({
+            candidateId,
+            profileChecksum,
+            jobs: jobsToEvaluate,
+            preferences,
+          });
+
+          evalMetrics = {
+            afterDeterministicFilters: evalResult.metrics.afterDeterministicFilters,
+            consideredForMatching: evalResult.metrics.consideredForMatching,
+            jobsSentToLlm: evalResult.metrics.jobsSentToLlm,
+            aiCacheHits: evalResult.metrics.aiCacheHits,
+            aiCacheMisses: evalResult.metrics.aiCacheMisses,
+            recommendationsProduced: evalResult.metrics.recommendationsProduced,
+          };
+
+          await this.searchExecutionRepo.updateStage(
+            candidateId,
+            executionId,
+            'stage:ai_matching',
+            'completed',
+            `${evalMetrics.recommendationsProduced} recommendations (${evalMetrics.aiCacheHits} cached, ${evalMetrics.jobsSentToLlm} AI evaluated)`
+          );
+          await this.searchExecutionRepo.appendTimeline(candidateId, executionId, {
+            message: `AI matching completed: ${evalMetrics.recommendationsProduced} recommendations produced (${evalMetrics.aiCacheHits} cached, ${evalMetrics.jobsSentToLlm} evaluated via AI)`,
+            isAi: true,
+            type: 'success',
+          });
+        } catch (evalErr) {
+          this.logger?.warn({
+            event: 'search.recommendation_pipeline.failed',
+            candidateId,
+            executionId,
+            error: evalErr instanceof Error ? evalErr.message : 'Evaluation pipeline failed',
+          });
+          await this.searchExecutionRepo.updateStage(candidateId, executionId, 'stage:ai_matching', 'completed');
+        }
+      } else {
+        await this.searchExecutionRepo.updateStage(candidateId, executionId, 'stage:fresh', 'completed');
+        await this.searchExecutionRepo.appendTimeline(candidateId, executionId, {
+          message: 'Freshness & eligibility filtering completed',
+          type: 'info',
+        });
+
+        await this.searchExecutionRepo.updateStage(candidateId, executionId, 'stage:ai_matching', 'running');
+        await this.searchExecutionRepo.appendTimeline(candidateId, executionId, {
+          message: 'AI matching evaluation started',
+          isAi: true,
+          type: 'info',
+        });
+
+        await this.searchExecutionRepo.updateStage(candidateId, executionId, 'stage:ai_matching', 'completed');
+        await this.searchExecutionRepo.appendTimeline(candidateId, executionId, {
+          message: 'AI matching evaluation completed',
+          isAi: true,
+          type: 'success',
+        });
+      }
 
       await this.searchExecutionRepo.updateStage(candidateId, executionId, 'stage:finalize', 'completed');
 
@@ -363,7 +487,13 @@ export class CandidateSearchService {
           duplicates: totalDuplicates,
           failed: totalFailed,
           filteredOut: totalDuplicates,
-          aiEvaluated: totalInserted,
+          afterDeterministicFilters: evalMetrics.afterDeterministicFilters || totalInserted,
+          consideredForMatching: evalMetrics.consideredForMatching || totalInserted,
+          sentToLlm: evalMetrics.jobsSentToLlm,
+          aiCacheHits: evalMetrics.aiCacheHits,
+          aiCacheMisses: evalMetrics.aiCacheMisses,
+          recommendationsProduced: evalMetrics.recommendationsProduced,
+          aiEvaluated: evalMetrics.recommendationsProduced || totalInserted,
           aiFailed: 0,
         },
       });

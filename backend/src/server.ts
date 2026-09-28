@@ -40,6 +40,8 @@ import { SearchPlanner } from './search/search-planner.js';
 
 import { CandidateSearchService } from './search/candidate-search.service.js';
 import { SupabaseSearchExecutionRepository } from './search/search-execution.repository.js';
+import { RecommendationPipeline } from './matching/recommendation-pipeline.js';
+import { SupabaseEvaluationCacheRepository } from './matching/evaluation-cache.repository.js';
 
 const env = loadEnv(process.env); const logger = new StructuredLogger();
 function createEmbeddingRunner(accessToken: string, candidateId: string) {
@@ -68,6 +70,13 @@ function createCandidateSearchService(accessToken: string, candidateId?: string)
     embedding,
     logger
   );
+  const matchingRepo = new SupabaseMatchingRepository(client);
+  const cacheRepo = new SupabaseEvaluationCacheRepository(client);
+  const provider = new SumoPodProvider({ baseUrl: env.aiBaseUrl, apiKey: env.aiApiKey });
+  const llm = new LlmService(provider);
+  const recommendationPipeline = new RecommendationPipeline(matchingRepo, cacheRepo, llm);
+  const jobService = new JobService(new SupabaseJobRepository(client));
+
   return new CandidateSearchService(
     searchProfileService,
     profileRepo,
@@ -76,7 +85,9 @@ function createCandidateSearchService(accessToken: string, candidateId?: string)
     orchestrator,
     logger,
     searchPreferencesService,
-    searchExecutionRepo
+    searchExecutionRepo,
+    recommendationPipeline,
+    jobService
   );
 }
 async function executeScrape(input: { candidateId: string; source: string; keyword?: string; location?: string; remote?: boolean; maxPages?: number }, accessToken: string) {

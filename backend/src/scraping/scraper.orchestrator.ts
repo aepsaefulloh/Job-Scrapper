@@ -19,6 +19,7 @@ export type ScrapeSummary = {
   duplicates: number;
   failed: number;
   expiredByAge?: number;
+  jobIds?: string[];
 };
 
 type Ingestion = {
@@ -71,11 +72,13 @@ export class ScraperOrchestrator {
     let duplicates = 0;
     let failed = 0;
     let expiredByAge = 0;
+    const jobIds: string[] = [];
 
     for (const job of jobs) {
       try {
         const rawJob = toRawJob(job);
         const result = await this.ingestion.ingest(rawJob, request.candidateId);
+        jobIds.push(result.jobId);
 
         this.logger?.info({
           event: 'scrape.ingestion.completed',
@@ -141,6 +144,7 @@ export class ScraperOrchestrator {
       duplicates,
       failed,
       expiredByAge,
+      jobIds,
     };
 
     this.logger?.info({
