@@ -80,15 +80,15 @@ describe('SearchPreferencesService', () => {
 
     await expect(
       service.updatePreferences('candidate-1', {
-        sources: ['indeed' as any],
+        sources: ['fake-portal' as any],
       })
-    ).rejects.toThrow('Unsupported job source: "indeed"');
+    ).rejects.toThrow('Unsupported job source: "fake-portal"');
 
     await expect(
       service.updatePreferences('candidate-1', {
-        sources: ['linkedin' as any],
+        sources: ['monster' as any],
       })
-    ).rejects.toThrow('Unsupported job source: "linkedin"');
+    ).rejects.toThrow('Unsupported job source: "monster"');
   });
 
   it('validates work modes and employment types', async () => {

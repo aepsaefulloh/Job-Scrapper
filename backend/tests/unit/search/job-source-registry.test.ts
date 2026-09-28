@@ -29,12 +29,28 @@ describe('Job Source Registry', () => {
     expect(typeof glints?.supportsWorkMode).toBe('boolean');
   });
 
-  it('marks upcoming sources as unavailable (coming soon)', () => {
-    expect(isJobSourceAvailable('linkedin')).toBe(false);
-    expect(isJobSourceAvailable('indeed')).toBe(false);
-    expect(isJobSourceAvailable('kitalulus')).toBe(false);
-    expect(isJobSourceAvailable('kalibrr')).toBe(false);
-    expect(isJobSourceAvailable('karir-com')).toBe(false);
+  it('marks newly added sources as available with correct capabilities', () => {
+    const availableIds = getAvailableJobSourceIds();
+    expect(availableIds).toContain('kitalulus');
+    expect(availableIds).toContain('kalibrr');
+    expect(availableIds).toContain('karir');
+    expect(availableIds).toContain('indeed');
+    expect(availableIds).toContain('linkedin');
+
+    expect(isJobSourceAvailable('kitalulus')).toBe(true);
+    expect(isJobSourceAvailable('kalibrr')).toBe(true);
+    expect(isJobSourceAvailable('karir')).toBe(true);
+    expect(isJobSourceAvailable('karir-com')).toBe(true); // alias support
+    expect(isJobSourceAvailable('indeed')).toBe(true);
+    expect(isJobSourceAvailable('linkedin')).toBe(true);
+
+    const indeed = getJobSourceDefinition('indeed');
+    expect(indeed?.supportsFreshness).toBe(true);
+    expect(indeed?.supportsLocation).toBe(true);
+
+    const linkedin = getJobSourceDefinition('linkedin');
+    expect(linkedin?.supportsFreshness).toBe(true);
+    expect(linkedin?.supportsWorkMode).toBe(true);
   });
 
   it('returns false for unknown source IDs', () => {

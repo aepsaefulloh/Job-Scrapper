@@ -46,61 +46,69 @@ export const JOB_SOURCE_REGISTRY: readonly JobSourceDefinition[] = [
     description: 'Career discovery platform',
   },
   {
-    id: 'indeed',
-    name: 'Indeed',
-    available: false,
-    supportsLocation: false,
-    supportsFreshness: false,
-    supportsWorkMode: false,
-    description: 'Global job search engine',
-  },
-  {
-    id: 'linkedin',
-    name: 'LinkedIn',
-    available: false,
-    supportsLocation: false,
-    supportsFreshness: false,
-    supportsWorkMode: false,
-    description: 'Professional networking & jobs',
-  },
-  {
     id: 'kitalulus',
     name: 'KitaLulus',
-    available: false,
-    supportsLocation: false,
-    supportsFreshness: false,
-    supportsWorkMode: false,
+    available: true,
+    supportsLocation: true,
+    supportsFreshness: true,
+    supportsWorkMode: true,
     description: 'Indonesian workforce portal',
   },
   {
     id: 'kalibrr',
     name: 'Kalibrr',
-    available: false,
-    supportsLocation: false,
-    supportsFreshness: false,
-    supportsWorkMode: false,
+    available: true,
+    supportsLocation: true,
+    supportsFreshness: true,
+    supportsWorkMode: true,
     description: 'Southeast Asia recruitment platform',
   },
   {
-    id: 'karir-com',
+    id: 'karir',
     name: 'Karir.com',
-    available: false,
-    supportsLocation: false,
-    supportsFreshness: false,
+    available: true,
+    supportsLocation: true,
+    supportsFreshness: true,
     supportsWorkMode: false,
     description: 'Indonesian job portal',
   },
+  {
+    id: 'indeed',
+    name: 'Indeed',
+    available: true,
+    supportsLocation: true,
+    supportsFreshness: true,
+    supportsWorkMode: true,
+    description: 'Global job search engine (ID)',
+  },
+  {
+    id: 'linkedin',
+    name: 'LinkedIn',
+    available: true,
+    supportsLocation: true,
+    supportsFreshness: true,
+    supportsWorkMode: true,
+    description: 'Professional networking & jobs (Guest)',
+  },
 ] as const;
+
+function resolveSourceId(sourceId: string): string {
+  const normalized = sourceId.toLowerCase().trim();
+  if (normalized === 'karir-com') return 'karir';
+  return normalized;
+}
 
 export function getAvailableJobSourceIds(): string[] {
   return JOB_SOURCE_REGISTRY.filter((s) => s.available).map((s) => s.id);
 }
 
 export function isJobSourceAvailable(sourceId: string): boolean {
-  const match = JOB_SOURCE_REGISTRY.find((s) => s.id === sourceId);
+  const resolved = resolveSourceId(sourceId);
+  const match = JOB_SOURCE_REGISTRY.find((s) => s.id === resolved);
   return match?.available === true;
 }
 
 export function getJobSourceDefinition(sourceId: string): JobSourceDefinition | undefined {
-  return JOB_SOURCE_REGISTRY.find((s) => s.id === sourceId);
+  const resolved = resolveSourceId(sourceId);
+  return JOB_SOURCE_REGISTRY.find((s) => s.id === resolved);
 }
