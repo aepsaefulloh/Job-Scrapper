@@ -24,6 +24,12 @@ export interface SearchExecutionSummary {
   duplicates: number;
   failed: number;
   filteredOut: number;
+  afterDeterministicFilters?: number;
+  consideredForMatching?: number;
+  sentToLlm?: number;
+  aiCacheHits?: number;
+  aiCacheMisses?: number;
+  recommendationsProduced?: number;
   aiEvaluated: number;
   aiFailed: number;
 }

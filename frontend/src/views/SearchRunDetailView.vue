@@ -169,26 +169,58 @@ function formatTimestamp(iso: string): string {
             </div>
           </div>
 
-          <!-- Summary Metrics Cards -->
-          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
-            <div class="p-3 bg-stone-50 border border-stone-200 rounded-md">
-              <span class="text-[11px] uppercase tracking-wider text-stone-600 font-semibold block">Discovered</span>
-              <span class="text-xl font-serif text-stone-900 font-normal">{{ execution.summary.discovered }}</span>
+          <!-- Deterministic Scraping & Ingestion Metrics -->
+          <div class="space-y-2 pt-2">
+            <div class="flex items-center justify-between text-xs text-stone-600">
+              <span class="font-semibold uppercase tracking-wider text-[11px] text-stone-700">Deterministic Ingestion & Filtering (0 AI)</span>
+              <span class="text-[11px] text-stone-600">100% Deterministic • Zero LLM</span>
             </div>
-            <div class="p-3 bg-stone-50 border border-stone-200 rounded-md">
-              <span class="text-[11px] uppercase tracking-wider text-stone-600 font-semibold block">Inserted New</span>
-              <span class="text-xl font-serif text-emerald-700 font-normal">+{{ execution.summary.inserted }}</span>
-            </div>
-            <div class="p-3 bg-stone-50 border border-stone-200 rounded-md">
-              <span class="text-[11px] uppercase tracking-wider text-stone-600 font-semibold block">Duplicates</span>
-              <span class="text-xl font-serif text-stone-600 font-normal">{{ execution.summary.duplicates }}</span>
-            </div>
-            <div class="p-3 bg-stone-50 border border-stone-200 rounded-md">
-              <div class="flex items-center gap-1.5">
-                <span class="text-[11px] uppercase tracking-wider text-stone-600 font-semibold block">AI Evaluated</span>
-                <span data-test="ai-badge" class="text-[9px] font-bold px-1 rounded bg-indigo-50 text-indigo-700 border border-indigo-200">✦ AI</span>
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div class="p-3 bg-stone-50 border border-stone-200 rounded-md">
+                <span class="text-[11px] uppercase tracking-wider text-stone-600 font-semibold block">Jobs Scraped</span>
+                <span class="text-xl font-serif text-stone-900 font-normal">{{ execution.summary.discovered }}</span>
               </div>
-              <span class="text-xl font-serif text-indigo-900 font-normal">{{ execution.summary.aiEvaluated }}</span>
+              <div class="p-3 bg-stone-50 border border-stone-200 rounded-md">
+                <span class="text-[11px] uppercase tracking-wider text-stone-600 font-semibold block">Inserted New</span>
+                <span class="text-xl font-serif text-emerald-700 font-normal">+{{ execution.summary.inserted }}</span>
+              </div>
+              <div class="p-3 bg-stone-50 border border-stone-200 rounded-md">
+                <span class="text-[11px] uppercase tracking-wider text-stone-600 font-semibold block">Passed Deterministic</span>
+                <span class="text-xl font-serif text-stone-900 font-normal">{{ execution.summary.afterDeterministicFilters ?? execution.summary.inserted }}</span>
+              </div>
+              <div class="p-3 bg-stone-50 border border-stone-200 rounded-md">
+                <span class="text-[11px] uppercase tracking-wider text-stone-600 font-semibold block">Considered for Matching</span>
+                <span class="text-xl font-serif text-stone-900 font-normal">{{ execution.summary.consideredForMatching ?? execution.summary.inserted }}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- AI Recommendation & Cache Telemetry -->
+          <div class="space-y-2 pt-2 border-t border-stone-100">
+            <div class="flex items-center justify-between text-xs text-indigo-900">
+              <span class="font-semibold uppercase tracking-wider text-[11px] flex items-center gap-1.5">
+                AI Recommendation & Cache Telemetry
+                <span data-test="ai-badge" class="text-[9px] font-bold px-1 rounded bg-indigo-50 text-indigo-700 border border-indigo-200">✦ AI</span>
+              </span>
+              <span class="text-[11px] text-stone-600">Bounded to Top Relevant Jobs</span>
+            </div>
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div class="p-3 bg-indigo-50/40 border border-indigo-100 rounded-md">
+                <span class="text-[11px] uppercase tracking-wider text-indigo-800 font-semibold block">Sent to LLM</span>
+                <span class="text-xl font-serif text-indigo-950 font-normal">{{ execution.summary.sentToLlm ?? (execution.summary.aiEvaluated || 0) }}</span>
+              </div>
+              <div class="p-3 bg-emerald-50/40 border border-emerald-100 rounded-md">
+                <span class="text-[11px] uppercase tracking-wider text-emerald-800 font-semibold block">Cache Hits (0 Tokens)</span>
+                <span class="text-xl font-serif text-emerald-900 font-normal">{{ execution.summary.aiCacheHits ?? 0 }}</span>
+              </div>
+              <div class="p-3 bg-stone-50 border border-stone-200 rounded-md">
+                <span class="text-[11px] uppercase tracking-wider text-stone-600 font-semibold block">Cache Misses</span>
+                <span class="text-xl font-serif text-stone-800 font-normal">{{ execution.summary.aiCacheMisses ?? (execution.summary.sentToLlm ?? 0) }}</span>
+              </div>
+              <div class="p-3 bg-indigo-50/50 border border-indigo-200 rounded-md">
+                <span class="text-[11px] uppercase tracking-wider text-indigo-800 font-semibold block">Recommendations Ready</span>
+                <span class="text-xl font-serif text-indigo-900 font-normal">{{ execution.summary.recommendationsProduced ?? execution.summary.aiEvaluated }}</span>
+              </div>
             </div>
           </div>
         </div>
