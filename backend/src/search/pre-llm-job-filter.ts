@@ -73,7 +73,7 @@ export function filterJobForLlm(
           return { eligible: false, reason: 'POSTING_TOO_OLD' };
         }
       }
-    } else if (preferences.unknownPostingDatePolicy === 'reject') {
+    } else if (preferences.unknownPostingDatePolicy === 'exclude') {
       return { eligible: false, reason: 'POSTING_TOO_OLD' };
     }
   }

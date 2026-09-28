@@ -28,6 +28,7 @@ export interface JobSearchPreferences {
   employmentTypes: EmploymentTypePreference[];
   maxPostingAgeDays: number;
   unknownPostingDatePolicy: UnknownDatePolicy;
+  excludedRoles?: string[];
 }
 
 export const DEFAULT_SEARCH_PREFERENCES: Readonly<JobSearchPreferences> = {
@@ -37,4 +38,5 @@ export const DEFAULT_SEARCH_PREFERENCES: Readonly<JobSearchPreferences> = {
   employmentTypes: [],
   maxPostingAgeDays: 7,
   unknownPostingDatePolicy: 'exclude',
+  excludedRoles: [],
 };

@@ -222,12 +222,14 @@ export class RecommendationPipeline {
           total: item.ruleScore,
           breakdown: item.ruleBreakdown,
           matchedSkills: item.matchedSkills,
+          missingSkills: [],
         },
         this.model
       );
 
       if (aiAnalysis.status === 'ready') {
         const readyEval: ReadyAiMatchAnalysis = {
+          status: 'ready',
           score: aiAnalysis.score,
           recommendation: aiAnalysis.recommendation,
           strengths: aiAnalysis.strengths,
