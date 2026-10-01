@@ -103,4 +103,38 @@ describe('LokerIdScraper', () => {
     expect(jobs.length).toBeGreaterThan(0);
     expect(mockSession.close).toHaveBeenCalledOnce();
   });
+
+  it('falls back to combined keyword search if location slug causes 404', async () => {
+    const visitedUrls: string[] = [];
+    const mockSession: BrowserSession = {
+      goto: vi.fn().mockImplementation(async (url: string) => {
+        visitedUrls.push(url);
+      }),
+      getContent: vi.fn().mockImplementation(async () => {
+        const lastUrl = visitedUrls[visitedUrls.length - 1];
+        if (lastUrl.includes('lokasi=')) {
+          return '<title>Halaman Tidak Ditemukan (404) - LokerID</title><body>404 Not Found</body>';
+        }
+        return searchHtml;
+      }),
+      close: vi.fn().mockResolvedValue(undefined),
+    };
+
+    const mockBrowser: BrowserService = {
+      createSession: vi.fn().mockResolvedValue(mockSession),
+    };
+
+    const scraper = new LokerIdScraper(mockBrowser, 'https://www.loker.id');
+    const jobs = await scraper.search({
+      keyword: 'staff administrasi',
+      location: 'Bandung',
+      maxPages: 1,
+    });
+
+    const searchUrls = visitedUrls.filter((u) => u.includes('cari-lowongan-kerja'));
+    expect(searchUrls).toHaveLength(2);
+    expect(searchUrls[0]).toContain('lokasi=bandung');
+    expect(searchUrls[1]).toContain('q=staff+administrasi+Bandung');
+    expect(jobs.length).toBeGreaterThan(0);
+  });
 });

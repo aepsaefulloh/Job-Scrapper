@@ -33,6 +33,12 @@ describe('expandRoleAliases', () => {
     const result = expandRoleAliases('some unknown role');
     expect(result).toContain('some unknown role');
   });
+  it('returns aliases for staff administrasi', () => {
+    const result = expandRoleAliases('Staff Administrasi');
+    expect(result).toContain('admin');
+    expect(result).toContain('administrasi');
+    expect(result).toContain('staff administrasi');
+  });
   it('deduplicates aliases', () => {
     const result = expandRoleAliases('accountant');
     const unique = new Set(result.map(r => r.toLowerCase()));

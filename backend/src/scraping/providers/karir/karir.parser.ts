@@ -1,6 +1,6 @@
 import type { ScrapedJob } from '../../scraper.interface.js';
 import { parseRelativeDate } from '../../../domain/job/relative-date-parser.js';
-import type { KarirNextData, KarirOpportunityDoc } from './karir.types.js';
+import type { KarirNextData, KarirOpportunityDoc, KarirApiOpportunity, KarirApiDetailData } from './karir.types.js';
 
 function stripHtml(html: string): string {
   if (!html) return '';
@@ -200,3 +200,89 @@ export function parseKarirDetailPage(html: string): {
     skills: skills.length > 0 ? skills : undefined,
   };
 }
+
+export function parseKarirApiOpportunity(
+  item: KarirApiOpportunity,
+  baseUrl = 'https://karir.com',
+  scrapedAt = new Date().toISOString()
+): ScrapedJob {
+  const title = cleanText(item.job_position || item.title || item.name || '');
+  const company = cleanText(
+    item.company_name ||
+      (typeof item.company === 'object' && item.company !== null
+        ? (item.company as { name?: string }).name
+        : '') ||
+      'Unknown Company'
+  );
+  const location = cleanText(
+    item.description ||
+      (typeof item.location === 'object' && item.location !== null
+        ? (item.location as { name?: string }).name
+        : '')
+  ) || undefined;
+
+  const externalId = item.id ? String(item.id) : undefined;
+  const slug = item.slug || (item.id ? String(item.id) : '');
+  const jobUrl = slug ? new URL(`/opportunities/${slug}`, baseUrl).toString() : baseUrl;
+
+  const min =
+    typeof item.salary_lower === 'number'
+      ? item.salary_lower
+      : typeof item.salary_min === 'number'
+      ? item.salary_min
+      : undefined;
+  const max =
+    typeof item.salary_upper === 'number'
+      ? item.salary_upper
+      : typeof item.salary_max === 'number'
+      ? item.salary_max
+      : undefined;
+
+  return {
+    title,
+    company,
+    location,
+    jobUrl,
+    externalId,
+    source: 'karir',
+    salaryMin: min,
+    salaryMax: max,
+    salaryCurrency: min ? 'IDR' : undefined,
+    publishedAt: parseRelativeDate(item.posted_at || item.created_at),
+    scrapedAt,
+  };
+}
+
+export function parseKarirApiDetail(detail: KarirApiDetailData): {
+  description: string;
+  skills?: string[];
+} {
+  const descParts: string[] = [];
+  if (detail.responsibilities) {
+    const cleaned = cleanText(detail.responsibilities);
+    if (cleaned) descParts.push(cleaned);
+  }
+  if (detail.requirements) {
+    const cleaned = cleanText(detail.requirements);
+    if (cleaned) descParts.push(cleaned);
+  }
+
+  const skills: string[] = [];
+  if (Array.isArray(detail.required_skills)) {
+    for (const item of detail.required_skills) {
+      const name = typeof item === 'string' ? item : item?.name || item?.skill_name;
+      if (name && typeof name === 'string') {
+        const cleaned = cleanText(name);
+        if (cleaned && !skills.includes(cleaned)) {
+          skills.push(cleaned);
+        }
+      }
+    }
+  }
+
+  return {
+    description: descParts.join('\n\n') || '',
+    skills: skills.length > 0 ? skills : undefined,
+  };
+}
+

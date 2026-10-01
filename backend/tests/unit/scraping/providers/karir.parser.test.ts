@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   parseKarirSearchPage,
   parseKarirDetailPage,
+  parseKarirApiOpportunity,
+  parseKarirApiDetail,
 } from '../../../../src/scraping/providers/karir/karir.parser.js';
 
 describe('Karir.com Parser', () => {
@@ -144,4 +146,41 @@ describe('Karir.com Parser', () => {
     expect(parseKarirSearchPage('', 'https://karir.com')).toEqual([]);
     expect(parseKarirDetailPage('')).toEqual({ description: '' });
   });
+
+  it('parses Karir gateway API search opportunity and detail responses correctly', () => {
+    const rawOpp = {
+      id: 1401567,
+      job_position: 'Administrasi Building Management',
+      company_name: 'PT Pesonna Indonesia Jaya',
+      description: 'Prov. DKI-Jakarta • Kontrak • On-Site',
+      salary_lower: 5000000,
+      salary_upper: 7000000,
+      posted_at: '2026-10-01T07:15:00Z',
+    };
+
+    const parsed = parseKarirApiOpportunity(rawOpp, 'https://karir.com');
+    expect(parsed.title).toBe('Administrasi Building Management');
+    expect(parsed.company).toBe('PT Pesonna Indonesia Jaya');
+    expect(parsed.location).toBe('Prov. DKI-Jakarta • Kontrak • On-Site');
+    expect(parsed.jobUrl).toBe('https://karir.com/opportunities/1401567');
+    expect(parsed.externalId).toBe('1401567');
+    expect(parsed.salaryMin).toBe(5000000);
+    expect(parsed.salaryMax).toBe(7000000);
+    expect(parsed.salaryCurrency).toBe('IDR');
+    expect(parsed.publishedAt).toBe('2026-10-01T07:15:00.000Z');
+
+    const rawDetail = {
+      id: 1401567,
+      job_position: 'Administrasi Building Management',
+      responsibilities: '<p>Tanggung Jawab:</p><ul><li>Membuat laporan berkala</li></ul>',
+      requirements: '<p>Kualifikasi:</p><ul><li>Minimal S1 Administrasi</li></ul>',
+      required_skills: [{ name: 'Microsoft Office' }, { name: 'Filling Dokumen' }],
+    };
+
+    const detail = parseKarirApiDetail(rawDetail);
+    expect(detail.description).toContain('Membuat laporan berkala');
+    expect(detail.description).toContain('Minimal S1 Administrasi');
+    expect(detail.skills).toEqual(['Microsoft Office', 'Filling Dokumen']);
+  });
 });
+

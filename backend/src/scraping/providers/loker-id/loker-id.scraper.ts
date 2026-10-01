@@ -26,10 +26,20 @@ export class LokerIdScraper implements JobScraper {
             const path = page > 1 ? `/cari-lowongan-kerja/page/${page}` : '/cari-lowongan-kerja';
             const url = new URL(path, this.baseUrl);
             if (query.keyword) url.searchParams.set('q', query.keyword);
-            if (query.location) url.searchParams.set('lokasi', query.location);
+            if (query.location) url.searchParams.set('lokasi', query.location.trim().toLowerCase());
 
             await session.goto(url.toString());
-            const content = await session.getContent();
+            let content = await session.getContent();
+
+            // If loker.id returns a 404 page due to an unrecognized location slug, fall back to searching combined query
+            if (query.location && content.includes('Halaman Tidak Ditemukan')) {
+              const fallbackUrl = new URL(path, this.baseUrl);
+              const combinedQuery = [query.keyword, query.location].filter(Boolean).join(' ');
+              if (combinedQuery) fallbackUrl.searchParams.set('q', combinedQuery);
+              await session.goto(fallbackUrl.toString());
+              content = await session.getContent();
+            }
+
             const { jobs: summaries, pagination } = parseLokerIdSearchPage(content, this.baseUrl);
 
             for (const summary of summaries) {

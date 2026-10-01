@@ -27,12 +27,20 @@ const ALIAS_MAP: Record<string, string[]> = {
   'customer service': ['customer service', 'customer support', 'cs', 'customer relations'],
   operations: ['operations', 'operational staff', 'operations officer', 'ops'],
   logistics: ['logistics', 'supply chain', 'procurement', 'warehouse'],
-  administration: ['administration', 'admin', 'staff administrasi', 'administrator', 'office administration'],
+  administration: ['administration', 'admin', 'staff administrasi', 'administrasi', 'administrator', 'office administration'],
+  admin: ['admin', 'staff administrasi', 'administrasi', 'administration', 'office administration'],
+  'staff administrasi': ['staff administrasi', 'admin', 'administrasi', 'administration', 'office administration'],
+  'staf administrasi': ['staf administrasi', 'staff administrasi', 'admin', 'administrasi', 'administration'],
+  administrasi: ['administrasi', 'staff administrasi', 'admin', 'administration', 'office administration'],
   'graphic designer': ['graphic designer', 'desainer grafis', 'visual designer', 'creative designer'],
   'ui ux designer': ['ui ux designer', 'ui designer', 'ux designer', 'product designer'],
   teacher: ['teacher', 'guru', 'pengajar', 'educator', 'instructor', 'tutor'],
   legal: ['legal', 'legal staff', 'legal officer', 'corporate legal', 'compliance'],
   accounting: ['accounting', 'accountant', 'accounting officer', 'staf akuntansi'],
+  'accounting staff': ['accounting staff', 'accountant', 'accounting', 'staf akuntansi', 'finance accounting'],
+  hr: ['hr', 'human resources', 'hr officer', 'hr staff', 'people operations', 'rekrutmen'],
+  'hr staff': ['hr staff', 'hr', 'human resources', 'hr officer', 'rekrutmen'],
+  'it support': ['it support', 'technical support', 'helpdesk', 'it staff'],
 };
 
 /**

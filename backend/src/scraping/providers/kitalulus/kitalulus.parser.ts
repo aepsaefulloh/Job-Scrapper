@@ -123,44 +123,64 @@ export function parseKitaLulusSearchPage(
 
   // 2. Pure deterministic regex parsing of HTML cards
   const results: ScrapedJob[] = [];
-  const cardRegex = /<article[^>]*>([\s\S]*?)<\/article>/gi;
-  let cardMatch: RegExpExecArray | null;
 
-  while ((cardMatch = cardRegex.exec(html)) !== null) {
-    const cardHtml = cardMatch[1];
+  // Support both live Next.js card links and legacy article containers
+  const hasLiveCards = html.includes('/lowongan/detail/');
+  const cardChunks = hasLiveCards
+    ? html.split(/(?=<a[^>]*href=["'](?:\/id)?\/lowongan\/detail\/)/i).slice(1)
+    : [...html.matchAll(/<article[^>]*>([\s\S]*?)<\/article>/gi)].map((m) => m[1]);
+
+  for (const cardHtml of cardChunks) {
     if (!cardHtml) continue;
 
     // Link & externalId
-    const linkMatch = /href=["']([^"']*\/id\/lowongan\/[^"']+)["']/i.exec(cardHtml);
+    const linkMatch =
+      /href=["']((?:\/id)?\/lowongan\/detail\/[^"']+)["']/i.exec(cardHtml) ||
+      /href=["']([^"']*\/id\/lowongan\/[^"']+)["']/i.exec(cardHtml);
     if (!linkMatch || !linkMatch[1]) continue;
     const rawHref = linkMatch[1];
     const jobUrl = rawHref.startsWith('http') ? rawHref : new URL(rawHref, baseUrl).toString();
-    const externalId = rawHref.split('/lowongan/')[1]?.split('?')[0] || undefined;
+    const externalId =
+      rawHref.split('/lowongan/detail/')[1]?.split('?')[0] ||
+      rawHref.split('/lowongan/')[1]?.split('?')[0] ||
+      undefined;
 
     // Title
-    const titleMatch = /<h3[^>]*>([\s\S]*?)<\/h3>/i.exec(cardHtml) ||
+    const titleMatch =
+      /<h3[^>]*title=["']([^"']+)["'][^>]*>/i.exec(cardHtml) ||
+      /<h3[^>]*>([\s\S]*?)<\/h3>/i.exec(cardHtml) ||
       /<a[^>]*class=["'][^"']*title[^"']*["'][^>]*>([\s\S]*?)<\/a>/i.exec(cardHtml);
     const title = cleanText(titleMatch ? titleMatch[1] : '');
     if (!title) continue;
 
     // Company
-    const compMatch = /class=["'][^"']*company[^"']*["'][^>]*>([\s\S]*?)<\/(?:div|span|p|a)>/i.exec(cardHtml);
+    const compMatch =
+      /<p[^>]*class=["'][^"']*truncate[^"']*["'][^>]*title=["']([^"']+)["']/i.exec(cardHtml) ||
+      /class=["'][^"']*company[^"']*["'][^>]*>([\s\S]*?)<\/(?:div|span|p|a)>/i.exec(cardHtml) ||
+      /<p[^>]*class=["'][^"']*truncate[^"']*["'][^>]*>([\s\S]*?)<\/p>/i.exec(cardHtml);
     const company = cleanText(compMatch ? compMatch[1] : '') || 'Unknown Company';
 
     // Location
-    const locMatch = /class=["'][^"']*location[^"']*["'][^>]*>([\s\S]*?)<\/(?:div|span|p)>/i.exec(cardHtml);
+    const locMatch =
+      /<svg[^>]*>[\s\S]*?clip0_41372_3700[\s\S]*?<\/svg>\s*<p[^>]*>([^<]+)<\/p>/i.exec(cardHtml) ||
+      /class=["'][^"']*location[^"']*["'][^>]*>([\s\S]*?)<\/(?:div|span|p)>/i.exec(cardHtml) ||
+      /<p class=["']text-neutral-800 text-xs["']>([^<]*(?:Jakarta|Jawa|Bandung|Surabaya|Medan|Semarang|Bali|Indonesia|Kota|Kabupaten)[^<]*)<\/p>/i.exec(cardHtml);
     const location = locMatch ? cleanText(locMatch[1]) : undefined;
 
     // Salary
-    const salMatch = /class=["'][^"']*salary[^"']*["'][^>]*>([\s\S]*?)<\/(?:div|span|p)>/i.exec(cardHtml);
+    const salMatch =
+      /class=["'][^"']*salary[^"']*["'][^>]*>([\s\S]*?)<\/(?:div|span|p)>/i.exec(cardHtml) ||
+      /<p class=["']text-neutral-800 text-xs["']>(Rp[^<]+)<\/p>/i.exec(cardHtml);
     const { salaryMin, salaryMax, salaryCurrency } = parseSalary(salMatch ? salMatch[1] : undefined);
 
     // Work Mode
     const wmMatch = /class=["'][^"']*(?:work-mode|workmode)[^"']*["'][^>]*>([\s\S]*?)<\/(?:div|span|p)>/i.exec(cardHtml);
-    const workMode = mapWorkMode(wmMatch ? wmMatch[1] : location);
+    const workMode = mapWorkMode(wmMatch ? wmMatch[1] : `${title} ${location ?? ''}`);
 
     // Published At
-    const dateMatch = /class=["'][^"']*(?:posted|time|date)[^"']*["'][^>]*>([\s\S]*?)<\/(?:div|span|p)>/i.exec(cardHtml);
+    const dateMatch =
+      /<p class=["']text-neutral-500 text-xs["']>Terakhir diperbarui\s*([^<]+)<\/p>/i.exec(cardHtml) ||
+      /class=["'][^"']*(?:posted|time|date)[^"']*["'][^>]*>([\s\S]*?)<\/(?:div|span|p)>/i.exec(cardHtml);
     const publishedAt = parseRelativeDate(dateMatch ? cleanText(dateMatch[1]) : undefined);
 
     results.push({

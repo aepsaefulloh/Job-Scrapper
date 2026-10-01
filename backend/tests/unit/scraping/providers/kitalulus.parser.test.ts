@@ -143,8 +143,40 @@ describe('KitaLulus Parser', () => {
     expect(jobs[0].salaryMax).toBe(9000000);
   });
 
+  it('extracts jobs from modern Next.js anchor card markup', () => {
+    const modernHtml = `
+      <!DOCTYPE html>
+      <html>
+        <body>
+          <div class="flex flex-col gap-4">
+            <a class="hover:no-underline" href="/lowongan/detail/staff-admin-faktur-pqnn">
+              <div>
+                <h3 class="truncate" title="Staff Admin Faktur">Staff Admin Faktur</h3>
+                <p class="truncate" title="PT Kekal Abadi Packindo">PT Kekal Abadi Packindo</p>
+                <p class="text-neutral-800 text-xs">Jakarta Barat, DKI Jakarta</p>
+                <p class="text-neutral-800 text-xs">Rp 4.500.000 - Rp 5.500.000</p>
+                <p class="text-neutral-500 text-xs">Terakhir diperbarui hari ini</p>
+              </div>
+            </a>
+          </div>
+        </body>
+      </html>
+    `;
+
+    const jobs = parseKitaLulusSearchPage(modernHtml, 'https://kerja.kitalulus.com');
+    expect(jobs).toHaveLength(1);
+    expect(jobs[0].title).toBe('Staff Admin Faktur');
+    expect(jobs[0].company).toBe('PT Kekal Abadi Packindo');
+    expect(jobs[0].location).toBe('Jakarta Barat, DKI Jakarta');
+    expect(jobs[0].externalId).toBe('staff-admin-faktur-pqnn');
+    expect(jobs[0].jobUrl).toBe('https://kerja.kitalulus.com/lowongan/detail/staff-admin-faktur-pqnn');
+    expect(jobs[0].salaryMin).toBe(4500000);
+    expect(jobs[0].salaryMax).toBe(5500000);
+  });
+
   it('handles empty or malformed HTML gracefully without throwing', () => {
     expect(parseKitaLulusSearchPage('', 'https://kerja.kitalulus.com')).toEqual([]);
     expect(parseKitaLulusDetailPage('')).toEqual({ description: '' });
   });
 });
+
